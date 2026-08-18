@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --surface-2:      #ffffff;
+    --page:           #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --muted:          #898781;
+    --gridline:       #e1e0d9;
+    --border:         rgba(11,11,11,0.10);
+    --blue:           #2a78d6;
+    --orange:         #eb6834;
+    --aqua:           #1baf7a;
+    --violet:         #4a3aa7;
+    --good:           #0ca30c;
+    --warning:        #b8790f;
+    --warning-bg:     #fff3d9;
+    --critical:       #d03b3b;
+    --critical-bg:    #fbe4e4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --surface-2:      #232322;
+      --page:           #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --muted:          #898781;
+      --gridline:       #2c2c2a;
+      --border:         rgba(255,255,255,0.10);
+      --blue:           #3987e5;
+      --orange:         #d95926;
+      --aqua:           #199e70;
+      --violet:         #9085e9;
+      --good:           #0ca30c;
+      --warning:        #fab219;
+      --warning-bg:     #3a2f10;
+      --critical:       #e66767;
+      --critical-bg:    #3a1616;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--page);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input, select, textarea { font-family: inherit; font-size: inherit; }
+
+  .app { max-width: 920px; margin: 0 auto; padding: 12px 12px 88px; }
+
+  /* ---------- Header ---------- */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 4px; gap: 8px; flex-wrap: wrap;
+  }
+  .header h1 { font-size: 17px; margin: 0; font-weight: 700; }
+  .header-actions { display: flex; align-items: center; gap: 8px; }
+  .sync-status {
+    display: flex; align-items: center; gap: 6px; margin-top: 3px; margin-left: 2px;
+    font-size: 12px; color: var(--text-secondary);
+  }
+  .sync-status .dot {
+    width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; background: var(--muted);
+  }
+  .sync-status .dot.synced { background: var(--good); }
+  .sync-status .dot.error { background: var(--critical); }
+  .sync-status .dot.connecting, .sync-status .dot.saving {
+    background: var(--warning); animation: syncPulse 1s ease-in-out infinite;
+  }
+  @keyframes syncPulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+  .setup-banner {
+    display: none; background: var(--warning-bg); border: 1px solid var(--warning);
+    color: var(--text-primary); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; font-size: 13px;
+  }
+  .setup-banner.show { display: block; }
+  .setup-banner code {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px;
+    padding: 1px 6px; font-size: 12px;
+  }
+  .user-badge {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 6px 12px; font-size: 13px; color: var(--text-secondary);
+    cursor: pointer; white-space: nowrap;
+  }
+  .user-badge b { color: var(--text-primary); }
+  .lang-toggle {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700;
+    color: var(--blue); cursor: pointer; white-space: nowrap;
+  }
+
+  /* ---------- Tabs ---------- */
+  .tabs {
+    display: flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 4px; margin-bottom: 14px; overflow-x: auto;
+  }
+  .tab-btn {
+    flex: 1; border: none; background: transparent; padding: 10px 8px;
+    border-radius: 9px; font-weight: 600; font-size: 13px; color: var(--text-secondary);
+    cursor: pointer; white-space: nowrap;
+  }
+  .tab-btn.active { background: var(--blue); color: #fff; }
+
+  /* ---------- Stat tiles ---------- */
+  .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
+  @media (min-width: 640px) { .stats { grid-template-columns: repeat(5, 1fr); } }
+  .stat-tile {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px;
+    padding: 12px 14px; cursor: pointer;
+  }
+  .stat-tile .label { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+  .stat-tile .value { font-size: 24px; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .stat-tile.warn .value { color: var(--warning); }
+  .stat-tile.crit .value { color: var(--critical); }
+  .stat-tile.ok .value { color: var(--good); }
+  .stat-tile.info .value { color: var(--blue); }
+
+  /* ---------- Filter bar ---------- */
+  .filter-bar {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+  }
+  .filter-bar input[type="text"], .filter-bar input[type="date"], .filter-bar select {
+    flex: 1 1 140px; min-width: 0;
+    padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--text-primary);
+  }
+  .chip-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 12px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--text-secondary); font-size: 13px;
+    cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  .chip-toggle.on { border-color: var(--blue); color: var(--blue); background: color-mix(in srgb, var(--blue) 10%, var(--surface-2)); }
+
+  /* ---------- Item cards ---------- */
+  .item-list { display: flex; flex-direction: column; gap: 8px; }
+  .item-card {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px;
+    padding: 12px 14px;
+  }
+  .item-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .item-name { font-weight: 700; font-size: 15px; }
+  .item-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .item-qty-wrap { text-align: right; }
+  .item-qty { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .item-unit { font-size: 12px; color: var(--muted); }
+  .badge {
+    display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px;
+    border-radius: 999px; margin-top: 4px; margin-right: 4px;
+  }
+  .badge.warn { color: var(--warning); background: var(--warning-bg); }
+  .badge.crit { color: var(--critical); background: var(--critical-bg); }
+  .badge.type-fresh { color: var(--aqua); background: color-mix(in srgb, var(--aqua) 16%, var(--surface-2)); }
+  .badge.type-dry { color: var(--violet); background: color-mix(in srgb, var(--violet) 14%, var(--surface-2)); }
+  .item-actions { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .item-actions button { flex: 1; min-width: 84px; }
+
+  .btn {
+    border: none; border-radius: 10px; padding: 9px 12px; font-weight: 700; font-size: 13px;
+    cursor: pointer;
+  }
+  .btn-in { background: var(--blue); color: #fff; }
+  .btn-fresh { background: var(--aqua); color: #fff; }
+  .btn-out { background: var(--orange); color: #fff; }
+  .btn-count { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+  .btn-edit { background: transparent; color: var(--muted); border: 1px solid var(--border); flex: 0 0 auto; padding: 9px 10px; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-secondary { background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border); }
+  .btn-block { width: 100%; padding: 12px; border-radius: 12px; font-size: 14px; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  .empty-state { text-align: center; color: var(--muted); padding: 40px 10px; font-size: 14px; }
+
+  /* ---------- Floating add button ---------- */
+  .fab {
+    position: fixed; right: 18px; bottom: 22px; z-index: 30;
+    background: var(--blue); color: #fff; border: none; border-radius: 999px;
+    width: 56px; height: 56px; font-size: 26px; box-shadow: 0 4px 14px rgba(0,0,0,.25);
+    cursor: pointer;
+  }
+
+  /* ---------- Tables (history / yield report) ---------- */
+  .log-table-wrap { overflow-x: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; }
+  table.log-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 640px; }
+  table.log-table th {
+    text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase;
+    color: var(--muted); border-bottom: 1px solid var(--gridline); white-space: nowrap;
+  }
+  table.log-table td {
+    padding: 9px 12px; border-bottom: 1px solid var(--gridline); white-space: nowrap;
+    color: var(--text-primary);
+  }
+  table.log-table tr:last-child td { border-bottom: none; }
+  .delta-pos { color: var(--good); font-weight: 700; }
+  .delta-neg { color: var(--critical); font-weight: 700; }
+  .delta-zero { color: var(--muted); }
+  .yield-good { color: var(--good); font-weight: 700; }
+  .yield-mid { color: var(--warning); font-weight: 700; }
+  .yield-low { color: var(--critical); font-weight: 700; }
+
+  /* ---------- Modal ---------- */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: none; align-items: flex-end; justify-content: center; z-index: 50;
+  }
+  .overlay.show { display: flex; }
+  @media (min-width: 560px) { .overlay { align-items: center; } }
+  .modal {
+    background: var(--surface-2); width: 100%; max-width: 440px;
+    border-radius: 18px 18px 0 0; padding: 18px; max-height: 88vh; overflow-y: auto;
+  }
+  @media (min-width: 560px) { .modal { border-radius: 18px; } }
+  .modal h2 { margin: 0 0 4px; font-size: 17px; }
+  .modal .sub { color: var(--text-secondary); font-size: 13px; margin-bottom: 14px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface-1); color: var(--text-primary);
+  }
+  .field textarea { resize: vertical; min-height: 56px; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+  .modal-actions .btn { flex: 1; }
+  .err-text { color: var(--critical); font-size: 13px; margin-top: 8px; min-height: 16px; }
+  .qty-preview { font-size: 13px; color: var(--text-secondary); margin-top: -4px; margin-bottom: 12px; }
+  .yield-preview {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 12px; font-size: 13px; display: none;
+  }
+  .yield-preview.show { display: block; }
+  .yield-preview .row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .yield-preview .row b { font-variant-numeric: tabular-nums; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+    background: var(--text-primary); color: var(--surface-1); padding: 10px 18px;
+    border-radius: 999px; font-size: 13px; font-weight: 600; z-index: 80;
+    opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; text-align: center;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: var(--critical); color: #fff; }
+
+  .loading-row { text-align: center; padding: 24px; color: var(--muted); font-size: 13px; }
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--blue);
+    border-radius: 50%; display: inline-block; animation: spin .7s linear infinite; margin-right: 6px;
+    vertical-align: -3px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>📦 <span data-i18n="appTitle">ระบบเช็คสต๊อกสินค้า</span></h1>
+      <div class="sync-status" id="syncStatus">
+        <span class="dot connecting" id="syncDot"></span>
+        <span id="syncText">...</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="lang-toggle" id="langToggle" onclick="toggleLang()">EN</div>
+      <div class="user-badge" id="userBadge" onclick="openNameModal()">👤 <b id="userBadgeName">—</b></div>
+    </div>
+  </div>
+
+  <div class="setup-banner" id="setupBanner">
+    <b data-i18n="setupBannerTitle">ยังไม่ได้ตั้งค่า API</b><br>
+    <span data-i18n="setupBannerBody">เปิดไฟล์ index.html แล้วแก้ตัวแปร <code>API_BASE_URL</code> บรรทัดบนสุดของสคริปต์ ให้เป็น URL ของ Apps Script Web app ที่ deploy ไว้ (ดูคู่มือขึ้นเว็บบน GitHub Pages)</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabStockBtn" onclick="switchTab('stock')" data-i18n="tabStock">สต๊อกสินค้า</button>
+    <button class="tab-btn" id="tabHistoryBtn" onclick="switchTab('history')" data-i18n="tabHistory">ประวัติ</button>
+    <button class="tab-btn" id="tabYieldBtn" onclick="switchTab('yield')" data-i18n="tabYield">รายงาน Yield</button>
+  </div>
+
+  <!-- ===== STOCK VIEW ===== -->
+  <div id="viewStock">
+    <div class="stats">
+      <div class="stat-tile" id="statTotal" onclick="setQuickFilter('all')">
+        <div class="label" data-i18n="statTotal">สินค้าทั้งหมด</div>
+        <div class="value" id="statTotalVal">–</div>
+      </div>
+      <div class="stat-tile warn" id="statLow" onclick="setQuickFilter('low')">
+        <div class="label" data-i18n="statLow">ใกล้หมด/ต้องเติม</div>
+        <div class="value" id="statLowVal">–</div>
+      </div>
+      <div class="stat-tile crit" id="statOut" onclick="setQuickFilter('out')">
+        <div class="label" data-i18n="statOut">หมดสต๊อก</div>
+        <div class="value" id="statOutVal">–</div>
+      </div>
+      <div class="stat-tile ok" id="statToday" onclick="switchTab('history')">
+        <div class="label" data-i18n="statToday">ทำรายการวันนี้</div>
+        <div class="value" id="statTodayVal">–</div>
+      </div>
+      <div class="stat-tile info" id="statYield" onclick="switchTab('yield')">
+        <div class="label" data-i18n="statYield">Yield เฉลี่ยวันนี้</div>
+        <div class="value" id="statYieldVal">–</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <input type="text" id="searchBox" data-i18n-ph="searchPlaceholder" placeholder="ค้นหาชื่อ/รหัสสินค้า..." oninput="renderItems()">
+      <select id="typeFilter" onchange="renderItems()">
+        <option value="" data-i18n="allTypes">ทุกประเภท</option>
+        <option value="ของสด" data-i18n="typeFresh">ของสด</option>
+        <option value="ของแห้ง" data-i18n="typeDry">ของแห้ง</option>
+      </select>
+      <select id="categoryFilter" onchange="renderItems()">
+        <option value="" data-i18n="allCategories">ทุกหมวดหมู่</option>
+      </select>
+      <div class="chip-toggle" id="quickFilterChip" onclick="clearQuickFilter()" data-i18n="quickFilterAll">แสดงทั้งหมด</div>
+    </div>
+
+    <div class="item-list" id="itemList">
+      <div class="loading-row"><span class="spinner"></span><span data-i18n="loading">กำลังโหลดข้อมูล...</span></div>
+    </div>
+  </div>
+
+  <!-- ===== HISTORY VIEW ===== -->
+  <div id="viewHistory" style="display:none;">
+    <div class="filter-bar">
+      <input type="text" id="histSearch" data-i18n-ph="histSearchPlaceholder" placeholder="ค้นหาสินค้า/ผู้ใช้...">
+      <input type="date" id="histFrom">
+      <input type="date" id="histTo">
+      <button class="btn btn-secondary" onclick="loadHistory()" data-i18n="btnFilter">กรอง</button>
+    </div>
+    <div class="log-table-wrap">
+      <table class="log-table" id="logTable">
+        <thead>
+          <tr>
+            <th data-i18n="colTime">เวลา</th><th data-i18n="colUser">ผู้ใช้</th><th data-i18n="colType">ประเภท</th><th data-i18n="colItem">สินค้า</th>
+            <th data-i18n="colBefore">ก่อน</th><th data-i18n="colDelta">เปลี่ยนแปลง</th><th data-i18n="colAfter">หลัง</th><th data-i18n="colNote">หมายเหตุ</th>
+          </tr>
+        </thead>
+        <tbody id="logTableBody">
+          <tr><td colspan="8" class="loading-row"><span class="spinner"></span><span data-i18n="loading">กำลังโหลด...</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== YIELD REPORT VIEW ===== -->
+  <div id="viewYield" style="display:none;">
+    <div class="filter-bar">
+      <input type="text" id="yieldSearch" data-i18n-ph="histSearchPlaceholder" placeholder="ค้นหาสินค้า...">
+      <input type="date" id="yieldFrom">
+      <input type="date" id="yieldTo">
+      <button class="btn btn-secondary" onclick="loadYieldReport()" data-i18n="btnFilter">กรอง</button>
+    </div>
+    <div class="log-table-wrap">
+      <table class="log-table" id="yieldTable">
+        <thead>
+          <tr>
+            <th data-i18n="colItem">สินค้า</th><th data-i18n="colCategory">หมวดหมู่</th><th data-i18n="colReceiveCount">จำนวนครั้งรับ</th>
+            <th data-i18n="colAvgYield">Yield เฉลี่ย</th><th data-i18n="colAvgLoss">Loss เฉลี่ย</th>
+            <th data-i18n="colOrderSum">รวมตอนสั่ง</th><th data-i18n="colCleanedSum">รวมหลังทำความสะอาด</th><th data-i18n="colLossSum">รวม Loss</th>
+          </tr>
+        </thead>
+        <tbody id="yieldTableBody">
+          <tr><td colspan="8" class="loading-row"><span class="spinner"></span><span data-i18n="loading">กำลังโหลด...</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<button class="fab" onclick="openItemForm()" id="fabAddBtn" title="เพิ่มสินค้าใหม่">＋</button>
+
+<!-- ===== Modal: ตั้งชื่อผู้ใช้ ===== -->
+<div class="overlay" id="nameOverlay">
+  <div class="modal">
+    <h2 data-i18n="nameModalTitle">คุณคือใคร?</h2>
+    <div class="sub" data-i18n="nameModalSub">ระบุชื่อของคุณ เพื่อบันทึกไว้ในประวัติการทำรายการ</div>
+    <div class="field">
+      <label data-i18n="nameLabel">ชื่อ-นามสกุล / ชื่อเล่น</label>
+      <input type="text" id="nameInput" data-i18n-ph="namePlaceholder" placeholder="เช่น สมชาย ใจดี">
+    </div>
+    <div class="err-text" id="nameErr"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary btn-block" onclick="saveName()" data-i18n="btnStart">เริ่มใช้งาน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: เพิ่ม/แก้ไขสินค้า ===== -->
+<div class="overlay" id="itemFormOverlay">
+  <div class="modal">
+    <h2 id="itemFormTitle" data-i18n="itemFormTitleAdd">เพิ่มสินค้าใหม่</h2>
+    <div class="sub" id="itemFormSub" data-i18n="itemFormSubAdd">กรอกรายละเอียดสินค้า</div>
+    <div class="field">
+      <label data-i18n="fieldCode">รหัสสินค้า</label>
+      <input type="text" id="fCode" data-i18n-ph="codePlaceholder" placeholder="เช่น SKU-001">
+    </div>
+    <div class="field">
+      <label data-i18n="fieldName">ชื่อสินค้า</label>
+      <input type="text" id="fName" data-i18n-ph="itemNamePlaceholder" placeholder="เช่น กระดาษ A4">
+    </div>
+    <div class="field">
+      <label data-i18n="fieldType">ประเภทสินค้า</label>
+      <select id="fType">
+        <option value="ของสด" data-i18n="typeFresh">ของสด</option>
+        <option value="ของแห้ง" data-i18n="typeDry">ของแห้ง</option>
+      </select>
+    </div>
+    <div class="field">
+      <label data-i18n="fieldCategory">หมวดหมู่</label>
+      <input type="text" id="fCategory" data-i18n-ph="categoryPlaceholder" placeholder="เช่น เครื่องเขียน">
+    </div>
+    <div class="field">
+      <label data-i18n="fieldUnit">หน่วยนับ</label>
+      <input type="text" id="fUnit" data-i18n-ph="unitPlaceholder" placeholder="เช่น ชิ้น, กล่อง, แพ็ค">
+    </div>
+    <div class="field" id="fQtyWrap">
+      <label data-i18n="fieldQty">จำนวนคงเหลือเริ่มต้น</label>
+      <input type="number" id="fQty" step="0.01" placeholder="0">
+    </div>
+    <div class="field">
+      <label data-i18n="fieldMinQty">จำนวนขั้นต่ำ (แจ้งเตือนเมื่อต่ำกว่านี้)</label>
+      <input type="number" id="fMinQty" step="0.01" placeholder="0">
+    </div>
+    <div class="err-text" id="itemFormErr"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('itemFormOverlay')" data-i18n="btnCancel">ยกเลิก</button>
+      <button class="btn btn-primary" id="itemFormSubmitBtn" onclick="submitItemForm()" data-i18n="btnSave">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: ทำรายการสต๊อก (รับเข้า/จ่ายออก/นับสต๊อก) ===== -->
+<div class="overlay" id="txOverlay">
+  <div class="modal">
+    <h2 id="txTitle">รับสินค้าเข้า</h2>
+    <div class="sub" id="txSub"></div>
+    <div class="field">
+      <label id="txQtyLabel">จำนวน</label>
+      <input type="number" id="txQty" min="0" step="0.01" oninput="updateTxPreview()">
+    </div>
+    <div class="qty-preview" id="txPreview"></div>
+    <div class="field">
+      <label data-i18n="noteLabel">หมายเหตุ (ถ้ามี)</label>
+      <textarea id="txNote" data-i18n-ph="notePlaceholder" placeholder="เช่น รับจากซัพพลายเออร์ / นับสต๊อกประจำเดือน"></textarea>
+    </div>
+    <div class="err-text" id="txErr"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('txOverlay')" data-i18n="btnCancel">ยกเลิก</button>
+      <button class="btn btn-primary" id="txSubmitBtn" onclick="submitTransaction()" data-i18n="btnConfirm">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: รับของสด (Yield) ===== -->
+<div class="overlay" id="freshOverlay">
+  <div class="modal">
+    <h2 data-i18n="freshReceiveTitle">รับของสด (คำนวณ Yield)</h2>
+    <div class="sub" id="freshSub"></div>
+    <div class="field">
+      <label data-i18n="orderQtyLabel">จำนวน/น้ำหนักตอนสั่ง</label>
+      <input type="number" id="freshOrderQty" min="0" step="0.01" oninput="updateFreshPreview()">
+    </div>
+    <div class="field">
+      <label data-i18n="cleanedQtyLabel">จำนวน/น้ำหนักหลังทำความสะอาด</label>
+      <input type="number" id="freshCleanedQty" min="0" step="0.01" oninput="updateFreshPreview()">
+    </div>
+    <div class="yield-preview" id="freshPreview">
+      <div class="row"><span data-i18n="lossQtyLabel">จำนวน Loss</span><b id="freshPreviewLossQty">–</b></div>
+      <div class="row"><span data-i18n="yieldPctLabel">% Yield</span><b id="freshPreviewYield">–</b></div>
+      <div class="row"><span data-i18n="lossPctLabel">% Loss</span><b id="freshPreviewLoss">–</b></div>
+    </div>
+    <div class="field">
+      <label data-i18n="noteLabel">หมายเหตุ (ถ้ามี)</label>
+      <textarea id="freshNote" data-i18n-ph="freshNotePlaceholder" placeholder="เช่น ล็อตวันนี้เนื้อไม่ค่อยสด"></textarea>
+    </div>
+    <div class="err-text" id="freshErr"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('freshOverlay')" data-i18n="btnCancel">ยกเลิก</button>
+      <button class="btn btn-primary" id="freshSubmitBtn" onclick="submitFreshReceive()" data-i18n="btnConfirm">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ==================== ตั้งค่า API ====================
+  // วาง URL ของ Apps Script Web app ที่ Deploy แล้วตรงนี้ (ลงท้ายด้วย /exec)
+  // ดูวิธี deploy ได้ในคู่มือ "คู่มือขึ้นเว็บบน GitHub Pages.md"
+  var API_BASE_URL = 'https://script.google.com/macros/s/AKfycbzSudMYlSl6EJAkReZgXniUlfwWWTKwbgEEkM2WrCrfWTc4S-9TJVYKYTX5xCIc6UqJ4w/exec';
+
+  // ==================== i18n ====================
+  var I18N = {
+    th: {
+      appTitle: 'ระบบเช็คสต๊อกสินค้า',
+      userDefault: 'ระบุชื่อ',
+      syncConnecting: 'กำลังเชื่อมต่อ...', syncSaving: 'กำลังบันทึก...',
+      syncError: 'ขาดการเชื่อมต่อ - ตรวจสอบการตั้งค่า API', syncConnected: 'เชื่อมต่อ Google Sheets',
+      syncedAgo: 'ซิงค์ล่าสุด', justNow: 'เมื่อสักครู่', secAgo: ' วินาทีที่แล้ว', minAgo: ' นาทีที่แล้ว', hourAgo: ' ชั่วโมงที่แล้ว',
+      setupBannerTitle: 'ยังไม่ได้ตั้งค่า API',
+      setupBannerBody: 'เปิดไฟล์ index.html แล้วแก้ตัวแปร API_BASE_URL บรรทัดบนสุดของสคริปต์ ให้เป็น URL ของ Apps Script Web app ที่ deploy ไว้ (ดูคู่มือขึ้นเว็บบน GitHub Pages)',
+      tabStock: 'สต๊อกสินค้า', tabHistory: 'ประวัติ', tabYield: 'รายงาน Yield',
+      statTotal: 'สินค้าทั้งหมด', statLow: 'ใกล้หมด/ต้องเติม', statOut: 'หมดสต๊อก',
+      statToday: 'ทำรายการวันนี้', statYield: 'Yield เฉลี่ยวันนี้',
+      searchPlaceholder: 'ค้นหาชื่อ/รหัสสินค้า...',
+      allCategories: 'ทุกหมวดหมู่', allTypes: 'ทุกประเภท', typeFresh: 'ของสด', typeDry: 'ของแห้ง',
+      quickFilterAll: 'แสดงทั้งหมด',
+      quickFilterLow: 'กำลังแสดง: ใกล้หมด (แตะเพื่อล้าง)',
+      quickFilterOut: 'กำลังแสดง: หมดสต๊อก (แตะเพื่อล้าง)',
+      badgeLow: 'ใกล้หมด', badgeOut: 'หมดสต๊อก',
+      btnIn: 'รับเข้า', btnOut: 'จ่ายออก', btnCount: 'นับสต๊อก', btnFresh: 'รับของสด',
+      emptyState: 'ไม่พบสินค้าที่ตรงกับเงื่อนไข', loading: 'กำลังโหลดข้อมูล...',
+      nameModalTitle: 'คุณคือใคร?', nameModalSub: 'ระบุชื่อของคุณ เพื่อบันทึกไว้ในประวัติการทำรายการ',
+      nameLabel: 'ชื่อ-นามสกุล / ชื่อเล่น', namePlaceholder: 'เช่น สมชาย ใจดี',
+      nameErrRequired: 'กรุณากรอกชื่อ', btnStart: 'เริ่มใช้งาน',
+      itemFormTitleAdd: 'เพิ่มสินค้าใหม่', itemFormTitleEdit: 'แก้ไขสินค้า',
+      itemFormSubAdd: 'กรอกรายละเอียดสินค้าที่ต้องการเพิ่มในระบบ',
+      itemFormSubEdit: 'แก้ไขรายละเอียดสินค้า (จำนวนคงเหลือให้ใช้ปุ่มทำรายการที่หน้ารายการสินค้า)',
+      fieldCode: 'รหัสสินค้า', fieldName: 'ชื่อสินค้า', fieldType: 'ประเภทสินค้า',
+      fieldCategory: 'หมวดหมู่', fieldUnit: 'หน่วยนับ',
+      fieldQty: 'จำนวนคงเหลือเริ่มต้น', fieldMinQty: 'จำนวนขั้นต่ำ (แจ้งเตือนเมื่อต่ำกว่านี้)',
+      codePlaceholder: 'เช่น SKU-001', itemNamePlaceholder: 'เช่น กระดาษ A4',
+      categoryPlaceholder: 'เช่น เครื่องเขียน', unitPlaceholder: 'เช่น ชิ้น, กล่อง, แพ็ค, กิโลกรัม',
+      btnCancel: 'ยกเลิก', btnSave: 'บันทึก', btnSaving: 'กำลังบันทึก...',
+      txTitleIN: 'รับสินค้าเข้า', txTitleOUT: 'จ่ายสินค้าออก', txTitleCOUNT: 'นับสต๊อก (ปรับยอดให้ตรง)',
+      txLabelIN: 'จำนวนที่รับเข้า', txLabelOUT: 'จำนวนที่จ่ายออก', txLabelCOUNT: 'จำนวนที่นับได้จริง',
+      noteLabel: 'หมายเหตุ (ถ้ามี)', notePlaceholder: 'เช่น รับจากซัพพลายเออร์ / นับสต๊อกประจำเดือน',
+      btnConfirm: 'ยืนยัน', currentStock: 'คงเหลือปัจจุบัน', was: 'เดิม',
+      newStockWillBe: 'ยอดคงเหลือใหม่จะเป็น',
+      freshReceiveTitle: 'รับของสด (คำนวณ Yield)',
+      orderQtyLabel: 'จำนวน/น้ำหนักตอนสั่ง', cleanedQtyLabel: 'จำนวน/น้ำหนักหลังทำความสะอาด',
+      lossQtyLabel: 'จำนวน Loss', yieldPctLabel: '% Yield', lossPctLabel: '% Loss',
+      freshNotePlaceholder: 'เช่น ล็อตวันนี้เนื้อไม่ค่อยสด',
+      histSearchPlaceholder: 'ค้นหาสินค้า/ผู้ใช้...', btnFilter: 'กรอง',
+      colTime: 'เวลา', colUser: 'ผู้ใช้', colType: 'ประเภท', colItem: 'สินค้า',
+      colBefore: 'ก่อน', colDelta: 'เปลี่ยนแปลง', colAfter: 'หลัง', colNote: 'หมายเหตุ',
+      colCategory: 'หมวดหมู่', colReceiveCount: 'จำนวนครั้งรับ', colAvgYield: 'Yield เฉลี่ย', colAvgLoss: 'Loss เฉลี่ย',
+      colOrderSum: 'รวมตอนสั่ง', colCleanedSum: 'รวมหลังทำความสะอาด', colLossSum: 'รวม Loss',
+      noHistory: 'ยังไม่มีประวัติการทำรายการ', noYieldData: 'ยังไม่มีข้อมูล Yield ในช่วงที่เลือก',
+      toastSavedEdit: 'บันทึกการแก้ไขแล้ว', toastAddedItem: 'เพิ่มสินค้าเรียบร้อย',
+      toastTxSaved: 'บันทึกรายการเรียบร้อย', toastFreshSaved: 'บันทึกการรับของสดเรียบร้อย',
+      errQtyRequired: 'กรุณาระบุจำนวนเป็นตัวเลข', errCodeNameRequired: 'กรุณากรอกรหัสสินค้าและชื่อสินค้า',
+      errCleanedExceedsOrder: 'จำนวนหลังทำความสะอาดต้องไม่มากกว่าจำนวนตอนสั่ง',
+      editTooltip: 'แก้ไข', addItemTitle: 'เพิ่มสินค้าใหม่', typeLogFresh: 'รับของสด'
+    },
+    en: {
+      appTitle: 'Stock Check System',
+      userDefault: 'Set your name',
+      syncConnecting: 'Connecting...', syncSaving: 'Saving...',
+      syncError: 'Connection error - check API settings', syncConnected: 'Connected to Google Sheets',
+      syncedAgo: 'Synced', justNow: 'just now', secAgo: 's ago', minAgo: 'm ago', hourAgo: 'h ago',
+      setupBannerTitle: 'API not configured yet',
+      setupBannerBody: 'Open index.html and edit the API_BASE_URL variable at the top of the script to your deployed Apps Script Web app URL (see the GitHub Pages setup guide)',
+      tabStock: 'Stock', tabHistory: 'History', tabYield: 'Yield Report',
+      statTotal: 'Total Items', statLow: 'Low Stock', statOut: 'Out of Stock',
+      statToday: 'Transactions Today', statYield: 'Avg Yield Today',
+      searchPlaceholder: 'Search name/code...',
+      allCategories: 'All Categories', allTypes: 'All Types', typeFresh: 'Fresh', typeDry: 'Dry',
+      quickFilterAll: 'Show all',
+      quickFilterLow: 'Showing: Low stock (tap to clear)',
+      quickFilterOut: 'Showing: Out of stock (tap to clear)',
+      badgeLow: 'Low', badgeOut: 'Out of stock',
+      btnIn: 'Receive In', btnOut: 'Issue Out', btnCount: 'Stock Count', btnFresh: 'Receive Fresh',
+      emptyState: 'No items match this filter', loading: 'Loading...',
+      nameModalTitle: 'Who are you?', nameModalSub: 'Enter your name so it is recorded in the transaction history',
+      nameLabel: 'Full name / Nickname', namePlaceholder: 'e.g. John Smith',
+      nameErrRequired: 'Please enter your name', btnStart: 'Get Started',
+      itemFormTitleAdd: 'Add New Item', itemFormTitleEdit: 'Edit Item',
+      itemFormSubAdd: 'Fill in the details of the item you want to add',
+      itemFormSubEdit: 'Edit item details (use the transaction buttons on the stock list to change quantity)',
+      fieldCode: 'Item Code', fieldName: 'Item Name', fieldType: 'Item Type',
+      fieldCategory: 'Category', fieldUnit: 'Unit',
+      fieldQty: 'Initial Stock Quantity', fieldMinQty: 'Minimum Quantity (alert when below this)',
+      codePlaceholder: 'e.g. SKU-001', itemNamePlaceholder: 'e.g. A4 Paper',
+      categoryPlaceholder: 'e.g. Stationery', unitPlaceholder: 'e.g. Piece, Box, Pack, Kilogram',
+      btnCancel: 'Cancel', btnSave: 'Save', btnSaving: 'Saving...',
+      txTitleIN: 'Receive Stock In', txTitleOUT: 'Issue Stock Out', txTitleCOUNT: 'Stock Count (Adjust)',
+      txLabelIN: 'Quantity Received', txLabelOUT: 'Quantity Issued', txLabelCOUNT: 'Actual Counted Quantity',
+      noteLabel: 'Note (optional)', notePlaceholder: 'e.g. Received from supplier / Monthly stock count',
+      btnConfirm: 'Confirm', currentStock: 'Current stock', was: 'was',
+      newStockWillBe: 'New stock will be',
+      freshReceiveTitle: 'Receive Fresh Item (Yield Calculation)',
+      orderQtyLabel: 'Order Quantity/Weight', cleanedQtyLabel: 'Quantity/Weight After Cleaning',
+      lossQtyLabel: 'Loss Quantity', yieldPctLabel: '% Yield', lossPctLabel: '% Loss',
+      freshNotePlaceholder: 'e.g. today’s batch was not very fresh',
+      histSearchPlaceholder: 'Search item/user...', btnFilter: 'Filter',
+      colTime: 'Time', colUser: 'User', colType: 'Type', colItem: 'Item',
+      colBefore: 'Before', colDelta: 'Change', colAfter: 'After', colNote: 'Note',
+      colCategory: 'Category', colReceiveCount: 'Receipts', colAvgYield: 'Avg Yield', colAvgLoss: 'Avg Loss',
+      colOrderSum: 'Total Ordered', colCleanedSum: 'Total After Cleaning', colLossSum: 'Total Loss',
+      noHistory: 'No transaction history yet', noYieldData: 'No yield data for the selected range',
+      toastSavedEdit: 'Changes saved', toastAddedItem: 'Item added successfully',
+      toastTxSaved: 'Transaction saved', toastFreshSaved: 'Fresh item receipt saved',
+      errQtyRequired: 'Please enter a valid number', errCodeNameRequired: 'Please enter item code and name',
+      errCleanedExceedsOrder: 'Quantity after cleaning cannot exceed order quantity',
+      editTooltip: 'Edit', addItemTitle: 'Add New Item', typeLogFresh: 'Fresh Receive'
+    }
+  };
+
+  var state = {
+    lang: localStorage.getItem('stockapp_lang') || 'th',
+    user: '',
+    items: [],
+    categories: [],
+    summary: {},
+    currentTab: 'stock',
+    quickFilter: 'all',
+    editingCode: null,
+    txContext: null,
+    freshContext: null
+  };
+
+  function t(key) { return (I18N[state.lang] && I18N[state.lang][key]) || key; }
+
+  // ==================== API ====================
+  var syncState = 'connecting'; // connecting | saving | synced | error
+  var lastSyncedAt = null;
+
+  function isApiConfigured() {
+    return API_BASE_URL && API_BASE_URL.indexOf('PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE') === -1;
+  }
+
+  function apiCall(action, payload) {
+    setSyncState(lastSyncedAt ? 'saving' : 'connecting');
+    return fetch(API_BASE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: action, payload: payload || {} })
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (json) {
+        if (!json.ok) {
+          setSyncState('error');
+          throw new Error(json.error || 'Unknown error');
+        }
+        setSyncState('synced');
+        return json.data;
+      })
+      .catch(function (err) {
+        setSyncState('error');
+        throw err;
+      });
+  }
+
+  function setSyncState(s) {
+    syncState = s;
+    if (s === 'synced') lastSyncedAt = Date.now();
+    renderSyncStatus();
+  }
+
+  function timeAgoText(ts) {
+    var sec = Math.floor((Date.now() - ts) / 1000);
+    if (sec < 5) return ' ' + t('justNow');
+    if (sec < 60) return ' ' + sec + t('secAgo');
+    var min = Math.floor(sec / 60);
+    if (min < 60) return ' ' + min + t('minAgo');
+    var hr = Math.floor(min / 60);
+    return ' ' + hr + t('hourAgo');
+  }
+
+  function renderSyncStatus() {
+    var dot = document.getElementById('syncDot');
+    var text = document.getElementById('syncText');
+    if (!dot || !text) return;
+    dot.className = 'dot ' + syncState;
+    if (syncState === 'connecting') text.textContent = t('syncConnecting');
+    else if (syncState === 'saving') text.textContent = t('syncSaving');
+    else if (syncState === 'error') text.textContent = t('syncError');
+    else text.textContent = t('syncConnected') + ' · ' + t('syncedAgo') + (lastSyncedAt ? timeAgoText(lastSyncedAt) : '');
+  }
+
+  setInterval(function () { if (syncState === 'synced') renderSyncStatus(); }, 1000);
+
+  function applyLang() {
+    document.documentElement.lang = state.lang;
+    document.getElementById('langToggle').textContent = state.lang === 'th' ? 'EN' : 'TH';
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      el.textContent = t(el.getAttribute('data-i18n'));
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(function (el) {
+      el.placeholder = t(el.getAttribute('data-i18n-ph'));
+    });
+    updateUserBadge();
+    renderSyncStatus();
+    renderItems();
+    if (state.currentTab === 'history') renderHistory(state.lastLogs || []);
+    if (state.currentTab === 'yield') renderYieldReport(state.lastYieldReport || []);
+    if (state.quickFilter !== 'all') setQuickFilter(state.quickFilter);
+  }
+
+  function toggleLang() {
+    state.lang = state.lang === 'th' ? 'en' : 'th';
+    localStorage.setItem('stockapp_lang', state.lang);
+    applyLang();
+  }
+
+  // ---------------- Init ----------------
+  document.addEventListener('DOMContentLoaded', function () {
+    applyLang();
+    if (!isApiConfigured()) {
+      document.getElementById('setupBanner').classList.add('show');
+      setSyncState('error');
+      document.getElementById('itemList').innerHTML = '';
+      return;
+    }
+    var savedName = localStorage.getItem('stockapp_user') || '';
+    state.user = savedName;
+    updateUserBadge();
+    if (!savedName) {
+      openNameModal();
+    } else {
+      loadData();
+    }
+  });
+
+  function updateUserBadge() {
+    document.getElementById('userBadgeName').textContent = state.user || t('userDefault');
+  }
+
+  function openNameModal() {
+    document.getElementById('nameInput').value = state.user || '';
+    document.getElementById('nameErr').textContent = '';
+    document.getElementById('nameOverlay').classList.add('show');
+  }
+
+  function saveName() {
+    var val = document.getElementById('nameInput').value.trim();
+    if (!val) {
+      document.getElementById('nameErr').textContent = t('nameErrRequired');
+      return;
+    }
+    state.user = val;
+    localStorage.setItem('stockapp_user', val);
+    updateUserBadge();
+    closeModal('nameOverlay');
+    if (state.items.length === 0) loadData();
+  }
+
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+
+  // ---------------- Tabs ----------------
+  function switchTab(tab) {
+    state.currentTab = tab;
+    document.getElementById('viewStock').style.display = tab === 'stock' ? '' : 'none';
+    document.getElementById('viewHistory').style.display = tab === 'history' ? '' : 'none';
+    document.getElementById('viewYield').style.display = tab === 'yield' ? '' : 'none';
+    document.getElementById('fabAddBtn').style.display = tab === 'stock' ? '' : 'none';
+    document.getElementById('tabStockBtn').classList.toggle('active', tab === 'stock');
+    document.getElementById('tabHistoryBtn').classList.toggle('active', tab === 'history');
+    document.getElementById('tabYieldBtn').classList.toggle('active', tab === 'yield');
+    if (tab === 'history') loadHistory();
+    if (tab === 'yield') loadYieldReport();
+  }
+
+  // ---------------- Load data ----------------
+  function loadData() {
+    document.getElementById('itemList').innerHTML = '<div class="loading-row"><span class="spinner"></span>' + t('loading') + '</div>';
+    apiCall('getInitialData').then(onDataLoaded).catch(onError);
+  }
+
+  function onDataLoaded(data) {
+    state.items = data.items;
+    state.categories = data.categories;
+    state.summary = data.summary;
+    renderCategoryOptions();
+    renderSummary();
+    renderItems();
+  }
+
+  function onError(err) {
+    showToast((err && err.message) ? err.message : String(err), true);
+  }
+
+  function renderCategoryOptions() {
+    var sel = document.getElementById('categoryFilter');
+    var current = sel.value;
+    sel.innerHTML = '<option value="">' + t('allCategories') + '</option>' +
+      state.categories.map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('');
+    sel.value = current;
+  }
+
+  function renderSummary() {
+    document.getElementById('statTotalVal').textContent = state.summary.totalItems;
+    document.getElementById('statLowVal').textContent = state.summary.lowStock;
+    document.getElementById('statOutVal').textContent = state.summary.outOfStock;
+    document.getElementById('statTodayVal').textContent = state.summary.todayTransactions;
+    document.getElementById('statYieldVal').textContent = (state.summary.avgYieldToday === null || state.summary.avgYieldToday === undefined) ? '–' : (state.summary.avgYieldToday + '%');
+  }
+
+  // ---------------- Filters ----------------
+  function setQuickFilter(f) {
+    state.quickFilter = f;
+    var chip = document.getElementById('quickFilterChip');
+    if (f === 'all') {
+      chip.classList.remove('on'); chip.textContent = t('quickFilterAll');
+    } else if (f === 'low') {
+      chip.classList.add('on'); chip.textContent = t('quickFilterLow');
+    } else if (f === 'out') {
+      chip.classList.add('on'); chip.textContent = t('quickFilterOut');
+    }
+    renderItems();
+  }
+  function clearQuickFilter() { setQuickFilter('all'); }
+
+  function renderItems() {
+    var searchEl = document.getElementById('searchBox');
+    var catEl = document.getElementById('categoryFilter');
+    var typeEl = document.getElementById('typeFilter');
+    if (!searchEl) return;
+    var q = searchEl.value.trim().toLowerCase();
+    var cat = catEl.value;
+    var typ = typeEl.value;
+    var list = state.items.filter(function (it) { return it.status === 'ใช้งาน'; });
+
+    if (state.quickFilter === 'low') list = list.filter(function (it) { return it.qty <= it.minQty && it.qty > 0; });
+    if (state.quickFilter === 'out') list = list.filter(function (it) { return it.qty <= 0; });
+    if (typ) list = list.filter(function (it) { return it.type === typ; });
+    if (cat) list = list.filter(function (it) { return it.category === cat; });
+    if (q) list = list.filter(function (it) {
+      return it.name.toLowerCase().indexOf(q) !== -1 || it.code.toLowerCase().indexOf(q) !== -1;
+    });
+
+    var container = document.getElementById('itemList');
+    if (list.length === 0) {
+      container.innerHTML = '<div class="empty-state">' + t('emptyState') + '</div>';
+      return;
+    }
+
+    container.innerHTML = list.map(renderItemCard).join('');
+  }
+
+  function renderItemCard(it) {
+    var badge = '';
+    if (it.qty <= 0) badge = '<span class="badge crit">' + t('badgeOut') + '</span>';
+    else if (it.qty <= it.minQty) badge = '<span class="badge warn">' + t('badgeLow') + '</span>';
+
+    var isFresh = it.type === 'ของสด';
+    var typeBadge = '<span class="badge ' + (isFresh ? 'type-fresh' : 'type-dry') + '">' + (isFresh ? t('typeFresh') : t('typeDry')) + '</span>';
+
+    var receiveBtn = isFresh
+      ? '<button class="btn btn-fresh" onclick="openFresh(\'' + escapeAttr(it.code) + '\')">' + t('btnFresh') + '</button>'
+      : '<button class="btn btn-in" onclick="openTx(\'' + escapeAttr(it.code) + '\',\'IN\')">' + t('btnIn') + '</button>';
+
+    return '' +
+      '<div class="item-card">' +
+        '<div class="item-top">' +
+          '<div>' +
+            '<div class="item-name">' + escapeHtml(it.name) + '</div>' +
+            '<div class="item-meta">' + escapeHtml(it.code) + (it.category ? ' • ' + escapeHtml(it.category) : '') + '</div>' +
+            typeBadge + badge +
+          '</div>' +
+          '<div class="item-qty-wrap">' +
+            '<div class="item-qty">' + it.qty + '</div>' +
+            '<div class="item-unit">' + escapeHtml(it.unit || '') + (it.minQty ? ' • ' + it.minQty + ' min' : '') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="item-actions">' +
+          receiveBtn +
+          '<button class="btn btn-out" onclick="openTx(\'' + escapeAttr(it.code) + '\',\'OUT\')">' + t('btnOut') + '</button>' +
+          '<button class="btn btn-count" onclick="openTx(\'' + escapeAttr(it.code) + '\',\'COUNT\')">' + t('btnCount') + '</button>' +
+          '<button class="btn btn-edit" onclick="openItemForm(\'' + escapeAttr(it.code) + '\')" title="' + t('editTooltip') + '">✎</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // ---------------- Item form (add/edit) ----------------
+  function openItemForm(code) {
+    state.editingCode = code || null;
+    document.getElementById('itemFormErr').textContent = '';
+    var isEdit = !!code;
+    document.getElementById('itemFormTitle').textContent = isEdit ? t('itemFormTitleEdit') : t('itemFormTitleAdd');
+    document.getElementById('itemFormSub').textContent = isEdit ? t('itemFormSubEdit') : t('itemFormSubAdd');
+    document.getElementById('fQtyWrap').style.display = isEdit ? 'none' : '';
+
+    if (isEdit) {
+      var it = state.items.filter(function (i) { return i.code === code; })[0];
+      document.getElementById('fCode').value = it.code;
+      document.getElementById('fCode').disabled = true;
+      document.getElementById('fName').value = it.name;
+      document.getElementById('fType').value = it.type;
+      document.getElementById('fCategory').value = it.category;
+      document.getElementById('fUnit').value = it.unit;
+      document.getElementById('fMinQty').value = it.minQty;
+    } else {
+      document.getElementById('fCode').value = '';
+      document.getElementById('fCode').disabled = false;
+      document.getElementById('fName').value = '';
+      document.getElementById('fType').value = 'ของสด';
+      document.getElementById('fCategory').value = '';
+      document.getElementById('fUnit').value = '';
+      document.getElementById('fQty').value = '';
+      document.getElementById('fMinQty').value = '';
+    }
+    document.getElementById('itemFormOverlay').classList.add('show');
+  }
+
+  function submitItemForm() {
+    var code = document.getElementById('fCode').value.trim();
+    var name = document.getElementById('fName').value.trim();
+    var type = document.getElementById('fType').value;
+    var category = document.getElementById('fCategory').value.trim();
+    var unit = document.getElementById('fUnit').value.trim();
+    var minQty = document.getElementById('fMinQty').value;
+    var errBox = document.getElementById('itemFormErr');
+
+    if (!code || !name) { errBox.textContent = t('errCodeNameRequired'); return; }
+    if (!state.user) { openNameModal(); return; }
+
+    var btn = document.getElementById('itemFormSubmitBtn');
+    btn.disabled = true; btn.textContent = t('btnSaving');
+    errBox.textContent = '';
+
+    var payload = { code: code, name: name, type: type, category: category, unit: unit, minQty: minQty, user: state.user };
+
+    if (state.editingCode) {
+      apiCall('updateItem', payload)
+        .then(function (data) { btn.disabled = false; btn.textContent = t('btnSave'); onDataLoaded(data); closeModal('itemFormOverlay'); showToast(t('toastSavedEdit')); })
+        .catch(function (err) { btn.disabled = false; btn.textContent = t('btnSave'); errBox.textContent = err.message || err; });
+    } else {
+      payload.qty = document.getElementById('fQty').value || 0;
+      apiCall('addItem', payload)
+        .then(function (data) { btn.disabled = false; btn.textContent = t('btnSave'); onDataLoaded(data); closeModal('itemFormOverlay'); showToast(t('toastAddedItem')); })
+        .catch(function (err) { btn.disabled = false; btn.textContent = t('btnSave'); errBox.textContent = err.message || err; });
+    }
+  }
+
+  // ---------------- Stock transaction (IN for dry / OUT / COUNT) ----------------
+  function openTx(code, type) {
+    if (!state.user) { openNameModal(); return; }
+    var it = state.items.filter(function (i) { return i.code === code; })[0];
+    state.txContext = { code: code, type: type, item: it };
+
+    document.getElementById('txTitle').textContent = t('txTitle' + type);
+    document.getElementById('txSub').textContent = it.name + ' • ' + t('currentStock') + ' ' + it.qty + ' ' + (it.unit || '');
+    document.getElementById('txQtyLabel').textContent = t('txLabel' + type);
+    document.getElementById('txQty').value = '';
+    document.getElementById('txNote').value = '';
+    document.getElementById('txErr').textContent = '';
+    document.getElementById('txPreview').textContent = '';
+    document.getElementById('txOverlay').classList.add('show');
+    setTimeout(function () { document.getElementById('txQty').focus(); }, 50);
+  }
+
+  function updateTxPreview() {
+    var ctx = state.txContext;
+    if (!ctx) return;
+    var val = Number(document.getElementById('txQty').value);
+    var preview = document.getElementById('txPreview');
+    if (isNaN(val) || document.getElementById('txQty').value === '') { preview.textContent = ''; return; }
+    var before = ctx.item.qty;
+    var after;
+    if (ctx.type === 'IN') after = before + Math.abs(val);
+    else if (ctx.type === 'OUT') after = before - Math.abs(val);
+    else after = Math.abs(val);
+    preview.textContent = t('newStockWillBe') + ' ' + after + ' ' + (ctx.item.unit || '') + ' (' + t('was') + ' ' + before + ')';
+  }
+
+  function submitTransaction() {
+    var ctx = state.txContext;
+    var qty = document.getElementById('txQty').value;
+    var errBox = document.getElementById('txErr');
+    if (qty === '' || isNaN(Number(qty))) { errBox.textContent = t('errQtyRequired'); return; }
+
+    var btn = document.getElementById('txSubmitBtn');
+    btn.disabled = true; btn.textContent = t('btnSaving');
+    errBox.textContent = '';
+
+    var payload = {
+      code: ctx.code, type: ctx.type, qty: qty,
+      note: document.getElementById('txNote').value.trim(), user: state.user
+    };
+
+    apiCall('stockTransaction', payload)
+      .then(function (data) {
+        btn.disabled = false; btn.textContent = t('btnConfirm');
+        onDataLoaded(data);
+        closeModal('txOverlay');
+        showToast(t('toastTxSaved'));
+      })
+      .catch(function (err) {
+        btn.disabled = false; btn.textContent = t('btnConfirm');
+        errBox.textContent = err.message || err;
+      });
+  }
+
+  // ---------------- Fresh receive (yield) ----------------
+  function openFresh(code) {
+    if (!state.user) { openNameModal(); return; }
+    var it = state.items.filter(function (i) { return i.code === code; })[0];
+    state.freshContext = { code: code, item: it };
+
+    document.getElementById('freshSub').textContent = it.name + ' • ' + t('currentStock') + ' ' + it.qty + ' ' + (it.unit || '');
+    document.getElementById('freshOrderQty').value = '';
+    document.getElementById('freshCleanedQty').value = '';
+    document.getElementById('freshNote').value = '';
+    document.getElementById('freshErr').textContent = '';
+    document.getElementById('freshPreview').classList.remove('show');
+    document.getElementById('freshOverlay').classList.add('show');
+    setTimeout(function () { document.getElementById('freshOrderQty').focus(); }, 50);
+  }
+
+  function updateFreshPreview() {
+    var order = Number(document.getElementById('freshOrderQty').value);
+    var cleaned = Number(document.getElementById('freshCleanedQty').value);
+    var box = document.getElementById('freshPreview');
+    var orderStr = document.getElementById('freshOrderQty').value;
+    var cleanedStr = document.getElementById('freshCleanedQty').value;
+    if (orderStr === '' || cleanedStr === '' || isNaN(order) || isNaN(cleaned) || order <= 0) {
+      box.classList.remove('show');
+      return;
+    }
+    var lossQty = Math.round((order - cleaned) * 1000) / 1000;
+    var yieldPct = Math.round((cleaned / order) * 1000) / 10;
+    var lossPct = Math.round((100 - yieldPct) * 10) / 10;
+    document.getElementById('freshPreviewLossQty').textContent = lossQty + ' ' + (state.freshContext.item.unit || '');
+    document.getElementById('freshPreviewYield').textContent = yieldPct + '%';
+    document.getElementById('freshPreviewLoss').textContent = lossPct + '%';
+    box.classList.add('show');
+  }
+
+  function submitFreshReceive() {
+    var ctx = state.freshContext;
+    var order = document.getElementById('freshOrderQty').value;
+    var cleaned = document.getElementById('freshCleanedQty').value;
+    var errBox = document.getElementById('freshErr');
+
+    if (order === '' || isNaN(Number(order)) || Number(order) <= 0) { errBox.textContent = t('errQtyRequired'); return; }
+    if (cleaned === '' || isNaN(Number(cleaned)) || Number(cleaned) < 0) { errBox.textContent = t('errQtyRequired'); return; }
+    if (Number(cleaned) > Number(order)) { errBox.textContent = t('errCleanedExceedsOrder'); return; }
+
+    var btn = document.getElementById('freshSubmitBtn');
+    btn.disabled = true; btn.textContent = t('btnSaving');
+    errBox.textContent = '';
+
+    var payload = {
+      code: ctx.code, orderQty: order, cleanedQty: cleaned,
+      note: document.getElementById('freshNote').value.trim(), user: state.user
+    };
+
+    apiCall('receiveFreshItem', payload)
+      .then(function (data) {
+        btn.disabled = false; btn.textContent = t('btnConfirm');
+        onDataLoaded(data);
+        closeModal('freshOverlay');
+        showToast(t('toastFreshSaved'));
+      })
+      .catch(function (err) {
+        btn.disabled = false; btn.textContent = t('btnConfirm');
+        errBox.textContent = err.message || err;
+      });
+  }
+
+  // ---------------- History ----------------
+  function loadHistory() {
+    var tbody = document.getElementById('logTableBody');
+    tbody.innerHTML = '<tr><td colspan="8" class="loading-row"><span class="spinner"></span>' + t('loading') + '</td></tr>';
+    var filter = {
+      q: document.getElementById('histSearch') ? document.getElementById('histSearch').value.trim() : '',
+      dateFrom: document.getElementById('histFrom') ? document.getElementById('histFrom').value : '',
+      dateTo: document.getElementById('histTo') ? document.getElementById('histTo').value : ''
+    };
+    apiCall('getLogs', filter).then(renderHistory).catch(onError);
+  }
+
+  function renderHistory(logs) {
+    state.lastLogs = logs;
+    var tbody = document.getElementById('logTableBody');
+    if (!logs || logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="loading-row">' + t('noHistory') + '</td></tr>';
+      return;
+    }
+    tbody.innerHTML = logs.map(function (l) {
+      var deltaClass = l.delta > 0 ? 'delta-pos' : (l.delta < 0 ? 'delta-neg' : 'delta-zero');
+      var deltaText = l.delta > 0 ? ('+' + l.delta) : String(l.delta);
+      var typeLabel = l.type === 'รับของสด' ? t('typeLogFresh') : l.type;
+      var note = l.note || '';
+      if (l.type === 'รับของสด' && l.yieldPct !== '' && l.yieldPct !== null && l.yieldPct !== undefined) {
+        note = 'Yield ' + l.yieldPct + '% / Loss ' + l.lossPct + '% (' + l.orderQty + ' → ' + l.cleanedQty + ')' + (note ? ' — ' + note : '');
+      }
+      return '<tr>' +
+        '<td>' + escapeHtml(l.time) + '</td>' +
+        '<td>' + escapeHtml(l.user) + '</td>' +
+        '<td>' + escapeHtml(typeLabel) + '</td>' +
+        '<td>' + escapeHtml(l.name) + ' <span style="color:var(--muted)">(' + escapeHtml(l.code) + ')</span></td>' +
+        '<td>' + l.before + '</td>' +
+        '<td class="' + deltaClass + '">' + deltaText + '</td>' +
+        '<td>' + l.after + '</td>' +
+        '<td>' + escapeHtml(note) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  // ---------------- Yield report ----------------
+  function loadYieldReport() {
+    var tbody = document.getElementById('yieldTableBody');
+    tbody.innerHTML = '<tr><td colspan="8" class="loading-row"><span class="spinner"></span>' + t('loading') + '</td></tr>';
+    var filter = {
+      q: document.getElementById('yieldSearch') ? document.getElementById('yieldSearch').value.trim() : '',
+      dateFrom: document.getElementById('yieldFrom') ? document.getElementById('yieldFrom').value : '',
+      dateTo: document.getElementById('yieldTo') ? document.getElementById('yieldTo').value : ''
+    };
+    apiCall('getYieldReport', filter).then(renderYieldReport).catch(onError);
+  }
+
+  function renderYieldReport(report) {
+    state.lastYieldReport = report;
+    var tbody = document.getElementById('yieldTableBody');
+    if (!report || report.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="loading-row">' + t('noYieldData') + '</td></tr>';
+      return;
+    }
+    tbody.innerHTML = report.map(function (r) {
+      var yieldClass = r.avgYield >= 85 ? 'yield-good' : (r.avgYield >= 70 ? 'yield-mid' : 'yield-low');
+      return '<tr>' +
+        '<td>' + escapeHtml(r.name) + ' <span style="color:var(--muted)">(' + escapeHtml(r.code) + ')</span></td>' +
+        '<td>' + escapeHtml(r.category) + '</td>' +
+        '<td>' + r.count + '</td>' +
+        '<td class="' + yieldClass + '">' + r.avgYield + '%</td>' +
+        '<td>' + r.avgLoss + '%</td>' +
+        '<td>' + r.orderSum + ' ' + escapeHtml(r.unit) + '</td>' +
+        '<td>' + r.cleanedSum + ' ' + escapeHtml(r.unit) + '</td>' +
+        '<td>' + r.lossSum + ' ' + escapeHtml(r.unit) + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  // ---------------- Utils ----------------
+  var toastTimer;
+  function showToast(msg, isError) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (isError ? ' error' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.className = 'toast'; }, 3200);
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }
+</script>
+</body>
+</html>
