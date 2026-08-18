@@ -88,6 +88,31 @@
     background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px;
     padding: 1px 6px; font-size: 12px;
   }
+
+  /* ---------- Dashboard chart ---------- */
+  .dash-chart-card {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 14px;
+  }
+  .dash-legend { display: flex; gap: 16px; margin-bottom: 14px; font-size: 12px; color: var(--text-secondary); flex-wrap: wrap; }
+  .dash-legend .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; vertical-align: -1px; }
+  .dash-chart { display: flex; flex-direction: column; gap: 10px; }
+  .dash-row { display: flex; align-items: center; gap: 10px; }
+  .dash-row .cat-label {
+    width: 128px; flex: 0 0 auto; font-size: 12px; color: var(--text-secondary);
+    text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .dash-row .bar-track {
+    flex: 1; display: flex; height: 18px; border-radius: 6px; overflow: hidden; background: var(--gridline);
+  }
+  .dash-row .bar-seg { height: 100%; }
+  .dash-row .bar-seg.normal { background: var(--good); }
+  .dash-row .bar-seg.low { background: var(--warning); }
+  .dash-row .bar-seg.out { background: var(--critical); }
+  .dash-row .cat-count { width: 34px; flex: 0 0 auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .status-normal { color: var(--good); font-weight: 700; }
+  .status-low { color: var(--warning); font-weight: 700; }
+  .status-out { color: var(--critical); font-weight: 700; }
   .user-badge {
     display: flex; align-items: center; gap: 8px;
     background: var(--surface-2); border: 1px solid var(--border);
@@ -285,9 +310,61 @@
   </div>
 
   <div class="tabs">
+    <button class="tab-btn" id="tabDashboardBtn" onclick="switchTab('dashboard')" data-i18n="tabDashboard">แดชบอร์ด</button>
     <button class="tab-btn active" id="tabStockBtn" onclick="switchTab('stock')" data-i18n="tabStock">สต๊อกสินค้า</button>
     <button class="tab-btn" id="tabHistoryBtn" onclick="switchTab('history')" data-i18n="tabHistory">ประวัติ</button>
     <button class="tab-btn" id="tabYieldBtn" onclick="switchTab('yield')" data-i18n="tabYield">รายงาน Yield</button>
+  </div>
+
+  <!-- ===== DASHBOARD VIEW ===== -->
+  <div id="viewDashboard" style="display:none;">
+    <div class="filter-bar">
+      <select id="dashTypeFilter" onchange="renderDashboard()">
+        <option value="" data-i18n="allTypes">ทุกประเภท</option>
+        <option value="ของสด" data-i18n="typeFresh">ของสด</option>
+        <option value="ของแห้ง" data-i18n="typeDry">ของแห้ง</option>
+      </select>
+    </div>
+
+    <div class="stats" id="dashStats">
+      <div class="stat-tile" id="dashStatTotal">
+        <div class="label" data-i18n="statTotal">สินค้าทั้งหมด</div>
+        <div class="value" id="dashStatTotalVal">–</div>
+      </div>
+      <div class="stat-tile ok" id="dashStatNormal">
+        <div class="label" data-i18n="statusNormal">ปกติ</div>
+        <div class="value" id="dashStatNormalVal">–</div>
+      </div>
+      <div class="stat-tile warn" id="dashStatLow">
+        <div class="label" data-i18n="statLow">ใกล้หมด/ต้องเติม</div>
+        <div class="value" id="dashStatLowVal">–</div>
+      </div>
+      <div class="stat-tile crit" id="dashStatOut">
+        <div class="label" data-i18n="statOut">หมดสต๊อก</div>
+        <div class="value" id="dashStatOutVal">–</div>
+      </div>
+    </div>
+
+    <div class="dash-chart-card">
+      <div class="dash-legend">
+        <span><span class="dot" style="background:var(--good)"></span><span data-i18n="statusNormal">ปกติ</span></span>
+        <span><span class="dot" style="background:var(--warning)"></span><span data-i18n="badgeLow">ใกล้หมด</span></span>
+        <span><span class="dot" style="background:var(--critical)"></span><span data-i18n="badgeOut">หมดสต๊อก</span></span>
+      </div>
+      <div class="dash-chart" id="dashChart"></div>
+    </div>
+
+    <div class="log-table-wrap">
+      <table class="log-table" id="dashTable">
+        <thead>
+          <tr>
+            <th data-i18n="colItem">สินค้า</th><th data-i18n="colType">ประเภท</th><th data-i18n="colCategory">หมวดหมู่</th>
+            <th data-i18n="colQty">คงเหลือ</th><th data-i18n="colMinQty">ขั้นต่ำ</th><th data-i18n="colStatus">สถานะ</th>
+          </tr>
+        </thead>
+        <tbody id="dashTableBody"></tbody>
+      </table>
+    </div>
   </div>
 
   <!-- ===== STOCK VIEW ===== -->
@@ -513,7 +590,8 @@
       syncedAgo: 'ซิงค์ล่าสุด', justNow: 'เมื่อสักครู่', secAgo: ' วินาทีที่แล้ว', minAgo: ' นาทีที่แล้ว', hourAgo: ' ชั่วโมงที่แล้ว',
       setupBannerTitle: 'ยังไม่ได้ตั้งค่า API',
       setupBannerBody: 'เปิดไฟล์ index.html แล้วแก้ตัวแปร API_BASE_URL บรรทัดบนสุดของสคริปต์ ให้เป็น URL ของ Apps Script Web app ที่ deploy ไว้ (ดูคู่มือขึ้นเว็บบน GitHub Pages)',
-      tabStock: 'สต๊อกสินค้า', tabHistory: 'ประวัติ', tabYield: 'รายงาน Yield',
+      tabDashboard: 'แดชบอร์ด', tabStock: 'สต๊อกสินค้า', tabHistory: 'ประวัติ', tabYield: 'รายงาน Yield',
+      statusNormal: 'ปกติ', colQty: 'คงเหลือ', colMinQty: 'ขั้นต่ำ', colStatus: 'สถานะ',
       statTotal: 'สินค้าทั้งหมด', statLow: 'ใกล้หมด/ต้องเติม', statOut: 'หมดสต๊อก',
       statToday: 'ทำรายการวันนี้', statYield: 'Yield เฉลี่ยวันนี้',
       searchPlaceholder: 'ค้นหาชื่อ/รหัสสินค้า...',
@@ -565,7 +643,8 @@
       syncedAgo: 'Synced', justNow: 'just now', secAgo: 's ago', minAgo: 'm ago', hourAgo: 'h ago',
       setupBannerTitle: 'API not configured yet',
       setupBannerBody: 'Open index.html and edit the API_BASE_URL variable at the top of the script to your deployed Apps Script Web app URL (see the GitHub Pages setup guide)',
-      tabStock: 'Stock', tabHistory: 'History', tabYield: 'Yield Report',
+      tabDashboard: 'Dashboard', tabStock: 'Stock', tabHistory: 'History', tabYield: 'Yield Report',
+      statusNormal: 'Normal', colQty: 'Qty', colMinQty: 'Min', colStatus: 'Status',
       statTotal: 'Total Items', statLow: 'Low Stock', statOut: 'Out of Stock',
       statToday: 'Transactions Today', statYield: 'Avg Yield Today',
       searchPlaceholder: 'Search name/code...',
@@ -697,6 +776,7 @@
     updateUserBadge();
     renderSyncStatus();
     renderItems();
+    if (state.currentTab === 'dashboard') renderDashboard();
     if (state.currentTab === 'history') renderHistory(state.lastLogs || []);
     if (state.currentTab === 'yield') renderYieldReport(state.lastYieldReport || []);
     if (state.quickFilter !== 'all') setQuickFilter(state.quickFilter);
@@ -757,13 +837,16 @@
   // ---------------- Tabs ----------------
   function switchTab(tab) {
     state.currentTab = tab;
+    document.getElementById('viewDashboard').style.display = tab === 'dashboard' ? '' : 'none';
     document.getElementById('viewStock').style.display = tab === 'stock' ? '' : 'none';
     document.getElementById('viewHistory').style.display = tab === 'history' ? '' : 'none';
     document.getElementById('viewYield').style.display = tab === 'yield' ? '' : 'none';
     document.getElementById('fabAddBtn').style.display = tab === 'stock' ? '' : 'none';
+    document.getElementById('tabDashboardBtn').classList.toggle('active', tab === 'dashboard');
     document.getElementById('tabStockBtn').classList.toggle('active', tab === 'stock');
     document.getElementById('tabHistoryBtn').classList.toggle('active', tab === 'history');
     document.getElementById('tabYieldBtn').classList.toggle('active', tab === 'yield');
+    if (tab === 'dashboard') renderDashboard();
     if (tab === 'history') loadHistory();
     if (tab === 'yield') loadYieldReport();
   }
@@ -781,6 +864,7 @@
     renderCategoryOptions();
     renderSummary();
     renderItems();
+    if (state.currentTab === 'dashboard') renderDashboard();
   }
 
   function onError(err) {
@@ -801,6 +885,77 @@
     document.getElementById('statOutVal').textContent = state.summary.outOfStock;
     document.getElementById('statTodayVal').textContent = state.summary.todayTransactions;
     document.getElementById('statYieldVal').textContent = (state.summary.avgYieldToday === null || state.summary.avgYieldToday === undefined) ? '–' : (state.summary.avgYieldToday + '%');
+  }
+
+  // ---------------- Dashboard ----------------
+  function renderDashboard() {
+    var typeEl = document.getElementById('dashTypeFilter');
+    if (!typeEl) return;
+    var typ = typeEl.value;
+    var items = state.items.filter(function (it) { return it.status === 'ใช้งาน' && (!typ || it.type === typ); });
+
+    var normalCount = 0, lowCount = 0, outCount = 0;
+    var byCat = {};
+    items.forEach(function (it) {
+      var bucket = it.qty <= 0 ? 'out' : (it.qty <= it.minQty ? 'low' : 'normal');
+      if (bucket === 'out') outCount++; else if (bucket === 'low') lowCount++; else normalCount++;
+      var cat = it.category || '—';
+      if (!byCat[cat]) byCat[cat] = { normal: 0, low: 0, out: 0, total: 0 };
+      byCat[cat][bucket]++;
+      byCat[cat].total++;
+    });
+
+    document.getElementById('dashStatTotalVal').textContent = items.length;
+    document.getElementById('dashStatNormalVal').textContent = normalCount;
+    document.getElementById('dashStatLowVal').textContent = lowCount;
+    document.getElementById('dashStatOutVal').textContent = outCount;
+
+    var catRows = Object.keys(byCat).map(function (cat) {
+      return Object.assign({ category: cat }, byCat[cat]);
+    }).sort(function (a, b) { return b.total - a.total; });
+
+    var chartEl = document.getElementById('dashChart');
+    if (catRows.length === 0) {
+      chartEl.innerHTML = '<div class="empty-state">' + t('emptyState') + '</div>';
+    } else {
+      chartEl.innerHTML = catRows.map(function (r) {
+        var pct = function (n) { return r.total > 0 ? (n / r.total * 100) : 0; };
+        return '' +
+          '<div class="dash-row">' +
+            '<div class="cat-label" title="' + escapeAttr(r.category) + '">' + escapeHtml(r.category) + '</div>' +
+            '<div class="bar-track">' +
+              (r.normal > 0 ? '<div class="bar-seg normal" style="width:' + pct(r.normal) + '%"></div>' : '') +
+              (r.low > 0 ? '<div class="bar-seg low" style="width:' + pct(r.low) + '%"></div>' : '') +
+              (r.out > 0 ? '<div class="bar-seg out" style="width:' + pct(r.out) + '%"></div>' : '') +
+            '</div>' +
+            '<div class="cat-count">' + r.total + '</div>' +
+          '</div>';
+      }).join('');
+    }
+
+    var sorted = items.slice().sort(function (a, b) {
+      if (a.qty !== b.qty) return a.qty - b.qty;
+      return a.name.localeCompare(b.name);
+    });
+
+    var tbody = document.getElementById('dashTableBody');
+    if (sorted.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="loading-row">' + t('emptyState') + '</td></tr>';
+      return;
+    }
+    tbody.innerHTML = sorted.map(function (it) {
+      var bucket = it.qty <= 0 ? 'out' : (it.qty <= it.minQty ? 'low' : 'normal');
+      var statusText = bucket === 'out' ? t('badgeOut') : (bucket === 'low' ? t('badgeLow') : t('statusNormal'));
+      var typeLabel = it.type === 'ของสด' ? t('typeFresh') : t('typeDry');
+      return '<tr>' +
+        '<td>' + escapeHtml(it.name) + ' <span style="color:var(--muted)">(' + escapeHtml(it.code) + ')</span></td>' +
+        '<td>' + typeLabel + '</td>' +
+        '<td>' + escapeHtml(it.category) + '</td>' +
+        '<td>' + it.qty + ' ' + escapeHtml(it.unit || '') + '</td>' +
+        '<td>' + it.minQty + '</td>' +
+        '<td class="status-' + bucket + '">' + statusText + '</td>' +
+      '</tr>';
+    }).join('');
   }
 
   // ---------------- Filters ----------------
