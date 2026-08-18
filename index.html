@@ -203,6 +203,7 @@
   .btn-edit { background: transparent; color: var(--muted); border: 1px solid var(--border); flex: 0 0 auto; padding: 9px 10px; }
   .btn-primary { background: var(--blue); color: #fff; }
   .btn-secondary { background: var(--surface-1); color: var(--text-primary); border: 1px solid var(--border); }
+  .btn-danger { background: var(--critical); color: #fff; }
   .btn-block { width: 100%; padding: 12px; border-radius: 12px; font-size: 14px; }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
 
@@ -517,6 +518,19 @@
       <button class="btn btn-secondary" onclick="closeModal('itemFormOverlay')" data-i18n="btnCancel">ยกเลิก</button>
       <button class="btn btn-primary" id="itemFormSubmitBtn" onclick="submitItemForm()" data-i18n="btnSave">บันทึก</button>
     </div>
+    <button class="btn btn-danger btn-block" id="deleteItemBtn" onclick="confirmDeleteItem()" data-i18n="btnDeleteItem" style="display:none; margin-top: 10px;">ลบสินค้านี้</button>
+  </div>
+</div>
+
+<!-- ===== Modal: ยืนยันการทำรายการ (ใช้ซ้ำได้ทั่วไป เช่น ยืนยันลบ) ===== -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal">
+    <h2 id="confirmTitle">ยืนยัน</h2>
+    <div class="sub" id="confirmSub"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('confirmOverlay')" data-i18n="btnCancel">ยกเลิก</button>
+      <button class="btn btn-danger" id="confirmActionBtn" onclick="runConfirmedAction()" data-i18n="btnConfirmDelete">ยืนยันลบ</button>
+    </div>
   </div>
 </div>
 
@@ -631,6 +645,10 @@
       noHistory: 'ยังไม่มีประวัติการทำรายการ', noYieldData: 'ยังไม่มีข้อมูล Yield ในช่วงที่เลือก',
       toastSavedEdit: 'บันทึกการแก้ไขแล้ว', toastAddedItem: 'เพิ่มสินค้าเรียบร้อย',
       toastTxSaved: 'บันทึกรายการเรียบร้อย', toastFreshSaved: 'บันทึกการรับของสดเรียบร้อย',
+      toastItemDeleted: 'ลบสินค้าเรียบร้อยแล้ว',
+      btnDeleteItem: 'ลบสินค้านี้', btnConfirmDelete: 'ยืนยันลบ',
+      deleteConfirmTitle: 'ยืนยันการลบสินค้า',
+      deleteConfirmSub: 'ต้องการลบสินค้านี้ออกจากระบบใช่หรือไม่? ประวัติการทำรายการเก่าจะยังอยู่ แต่สินค้าจะหายไปจากรายการปัจจุบัน (ย้อนกลับไม่ได้)',
       errQtyRequired: 'กรุณาระบุจำนวนเป็นตัวเลข', errCodeNameRequired: 'กรุณากรอกรหัสสินค้าและชื่อสินค้า',
       errCleanedExceedsOrder: 'จำนวนหลังทำความสะอาดต้องไม่มากกว่าจำนวนตอนสั่ง',
       editTooltip: 'แก้ไข', addItemTitle: 'เพิ่มสินค้าใหม่', typeLogFresh: 'รับของสด'
@@ -684,6 +702,10 @@
       noHistory: 'No transaction history yet', noYieldData: 'No yield data for the selected range',
       toastSavedEdit: 'Changes saved', toastAddedItem: 'Item added successfully',
       toastTxSaved: 'Transaction saved', toastFreshSaved: 'Fresh item receipt saved',
+      toastItemDeleted: 'Item deleted successfully',
+      btnDeleteItem: 'Delete This Item', btnConfirmDelete: 'Confirm Delete',
+      deleteConfirmTitle: 'Confirm item deletion',
+      deleteConfirmSub: 'Delete this item from the system? Past transaction history will remain, but the item will be removed from the current list (this cannot be undone).',
       errQtyRequired: 'Please enter a valid number', errCodeNameRequired: 'Please enter item code and name',
       errCleanedExceedsOrder: 'Quantity after cleaning cannot exceed order quantity',
       editTooltip: 'Edit', addItemTitle: 'Add New Item', typeLogFresh: 'Fresh Receive'
@@ -832,6 +854,21 @@
 
   function closeModal(id) {
     document.getElementById(id).classList.remove('show');
+  }
+
+  // ---------------- Reusable confirm modal ----------------
+  var pendingConfirmAction = null;
+  function askConfirm(title, sub, actionFn) {
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmSub').textContent = sub;
+    pendingConfirmAction = actionFn;
+    document.getElementById('confirmOverlay').classList.add('show');
+  }
+  function runConfirmedAction() {
+    var fn = pendingConfirmAction;
+    pendingConfirmAction = null;
+    closeModal('confirmOverlay');
+    if (fn) fn();
   }
 
   // ---------------- Tabs ----------------
@@ -1042,6 +1079,7 @@
     document.getElementById('itemFormTitle').textContent = isEdit ? t('itemFormTitleEdit') : t('itemFormTitleAdd');
     document.getElementById('itemFormSub').textContent = isEdit ? t('itemFormSubEdit') : t('itemFormSubAdd');
     document.getElementById('fQtyWrap').style.display = isEdit ? 'none' : '';
+    document.getElementById('deleteItemBtn').style.display = isEdit ? '' : 'none';
 
     if (isEdit) {
       var it = state.items.filter(function (i) { return i.code === code; })[0];
@@ -1093,6 +1131,35 @@
         .then(function (data) { btn.disabled = false; btn.textContent = t('btnSave'); onDataLoaded(data); closeModal('itemFormOverlay'); showToast(t('toastAddedItem')); })
         .catch(function (err) { btn.disabled = false; btn.textContent = t('btnSave'); errBox.textContent = err.message || err; });
     }
+  }
+
+  // ---------------- Delete item ----------------
+  function confirmDeleteItem() {
+    var it = state.items.filter(function (i) { return i.code === state.editingCode; })[0];
+    if (!it) return;
+    askConfirm(
+      t('deleteConfirmTitle'),
+      it.name + ' (' + it.code + ') — ' + t('deleteConfirmSub'),
+      function () { submitDeleteItem(it.code); }
+    );
+  }
+
+  function submitDeleteItem(code) {
+    if (!state.user) { openNameModal(); return; }
+    var errBox = document.getElementById('itemFormErr');
+    var btn = document.getElementById('deleteItemBtn');
+    btn.disabled = true;
+    apiCall('deleteItem', { code: code, user: state.user })
+      .then(function (data) {
+        btn.disabled = false;
+        onDataLoaded(data);
+        closeModal('itemFormOverlay');
+        showToast(t('toastItemDeleted'));
+      })
+      .catch(function (err) {
+        btn.disabled = false;
+        errBox.textContent = err.message || err;
+      });
   }
 
   // ---------------- Stock transaction (IN for dry / OUT / COUNT) ----------------
