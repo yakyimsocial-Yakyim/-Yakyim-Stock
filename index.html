@@ -125,6 +125,11 @@
     border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 700;
     color: var(--blue); cursor: pointer; white-space: nowrap;
   }
+  .branch-select {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600;
+    color: var(--text-primary); cursor: pointer; white-space: nowrap;
+  }
 
   /* ---------- Tabs ---------- */
   .tabs {
@@ -300,6 +305,7 @@
       </div>
     </div>
     <div class="header-actions">
+      <select class="branch-select" id="branchSelect" style="display:none;" onchange="switchBranch(this.value)"></select>
       <div class="lang-toggle" id="langToggle" onclick="toggleLang()">EN</div>
       <div class="user-badge" id="userBadge" onclick="openNameModal()">👤 <b id="userBadgeName">—</b></div>
     </div>
@@ -546,7 +552,7 @@
     <div class="qty-preview" id="txPreview"></div>
     <div class="field" id="txRequestedByField" style="display:none;">
       <label data-i18n="requestedByLabel">ผู้เบิก</label>
-      <input type="text" id="txRequestedBy" data-i18n-ph="requestedByPlaceholder" placeholder="ชื่อคนที่เบิกของออกไป">
+      <select id="txRequestedBy"></select>
     </div>
     <div class="field">
       <label data-i18n="noteLabel">หมายเหตุ (ถ้ามี)</label>
@@ -593,10 +599,27 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  // ==================== ตั้งค่า API ====================
-  // วาง URL ของ Apps Script Web app ที่ Deploy แล้วตรงนี้ (ลงท้ายด้วย /exec)
-  // ดูวิธี deploy ได้ในคู่มือ "คู่มือขึ้นเว็บบน GitHub Pages.md"
-  var API_BASE_URL = 'https://script.google.com/macros/s/AKfycbzSudMYlSl6EJAkReZgXniUlfwWWTKwbgEEkM2WrCrfWTc4S-9TJVYKYTX5xCIc6UqJ4w/exec';
+  // ==================== ตั้งค่า API / สาขา ====================
+  // แต่ละสาขา = Google Sheet + Apps Script แยกกันคนละชุด (คัดลอกจากของเดิม) มีปุ่ม "ยืนยัน" Web app ของตัวเอง
+  // วิธีเพิ่มสาขาใหม่ในอนาคต (ไม่กระทบความเร็ว เพราะแต่ละสาขาแยกฐานข้อมูลกันเองไม่ได้ใช้ฐานข้อมูลร่วมกัน):
+  //   1. เปิด Google Sheet เดิม → File → Make a copy (ตั้งชื่อสาขาใหม่)
+  //   2. เปิด Apps Script ของสำเนานั้น → Deploy → New deployment → Web app → คัดลอก URL ที่ได้ (ลงท้ายด้วย /exec)
+  //   3. เพิ่มรายการใหม่ในอ็อบเจกต์ BRANCHES ด้านล่างนี้ เช่น branch2: { name: 'สาขา 2', apiUrl: 'URL_ใหม่' }
+  //   4. อัปโหลดไฟล์นี้ทับของเดิมบน GitHub อีกครั้ง — จะมีเมนูเลือกสาขาโผล่ขึ้นที่หัวเว็บอัตโนมัติ (ถ้ามีมากกว่า 1 สาขา)
+  var BRANCHES = {
+    main: {
+      name: 'Yak Yim Thai Kitchen',
+      apiUrl: 'https://script.google.com/macros/s/AKfycbzSudMYlSl6EJAkReZgXniUlfwWWTKwbgEEkM2WrCrfWTc4S-9TJVYKYTX5xCIc6UqJ4w/exec'
+    }
+    // ตัวอย่างสาขาที่ 2 (เอา // ออกแล้วใส่ชื่อ/URL จริงตอนมีสาขาใหม่):
+    // , branch2: { name: 'สาขา 2', apiUrl: 'https://script.google.com/macros/s/XXXXXXXXXXXXXXXX/exec' }
+  };
+  var currentBranchKey = localStorage.getItem('stockapp_branch') || 'main';
+  if (!BRANCHES[currentBranchKey]) currentBranchKey = Object.keys(BRANCHES)[0];
+  var API_BASE_URL = BRANCHES[currentBranchKey].apiUrl;
+
+  // รายชื่อผู้เบิก (แก้ไข/เพิ่ม-ลดชื่อได้ตรงนี้)
+  var REQUESTED_BY_OPTIONS = ['Mai', 'Kan', 'Mon', 'Song', 'Puye', 'Aum', 'Cherry', 'Naiing', 'Aong', 'Mamochey', 'ma ma la'];
 
   // ==================== i18n ====================
   var I18N = {
@@ -635,8 +658,8 @@
       txTitleIN: 'รับสินค้าเข้า', txTitleOUT: 'จ่ายสินค้าออก', txTitleCOUNT: 'นับสต๊อก (ปรับยอดให้ตรง)',
       txLabelIN: 'จำนวนที่รับเข้า', txLabelOUT: 'จำนวนที่จ่ายออก', txLabelCOUNT: 'จำนวนที่นับได้จริง',
       noteLabel: 'หมายเหตุ (ถ้ามี)', notePlaceholder: 'เช่น รับจากซัพพลายเออร์ / นับสต๊อกประจำเดือน',
-      requestedByLabel: 'ผู้เบิก', requestedByPlaceholder: 'ชื่อคนที่เบิกของออกไป',
-      errRequestedByRequired: 'กรุณาระบุชื่อผู้เบิก',
+      requestedByLabel: 'ผู้เบิก', requestedByPlaceholder: '-- เลือกผู้เบิก --',
+      errRequestedByRequired: 'กรุณาเลือกผู้เบิก',
       btnConfirm: 'ยืนยัน', currentStock: 'คงเหลือปัจจุบัน', was: 'เดิม',
       newStockWillBe: 'ยอดคงเหลือใหม่จะเป็น',
       freshReceiveTitle: 'รับของสด (คำนวณ Yield)',
@@ -694,8 +717,8 @@
       txTitleIN: 'Receive Stock In', txTitleOUT: 'Issue Stock Out', txTitleCOUNT: 'Stock Count (Adjust)',
       txLabelIN: 'Quantity Received', txLabelOUT: 'Quantity Issued', txLabelCOUNT: 'Actual Counted Quantity',
       noteLabel: 'Note (optional)', notePlaceholder: 'e.g. Received from supplier / Monthly stock count',
-      requestedByLabel: 'Requested By', requestedByPlaceholder: 'Name of the person taking out the stock',
-      errRequestedByRequired: 'Please enter the requester’s name',
+      requestedByLabel: 'Requested By', requestedByPlaceholder: '-- Select requester --',
+      errRequestedByRequired: 'Please select a requester',
       btnConfirm: 'Confirm', currentStock: 'Current stock', was: 'was',
       newStockWillBe: 'New stock will be',
       freshReceiveTitle: 'Receive Fresh Item (Yield Calculation)',
@@ -818,9 +841,29 @@
     applyLang();
   }
 
+  // ---------------- Branch switcher (เตรียมไว้สำหรับเปิดสาขาเพิ่มในอนาคต) ----------------
+  // ถ้ามีสาขาเดียว (BRANCHES มีแค่ 1 รายการ) จะไม่แสดงตัวเลือกนี้เลย เพื่อไม่ให้หน้าเว็บรกโดยไม่จำเป็น
+  function initBranchSelector() {
+    var sel = document.getElementById('branchSelect');
+    var keys = Object.keys(BRANCHES);
+    if (keys.length <= 1) { sel.style.display = 'none'; return; }
+    sel.style.display = '';
+    sel.innerHTML = keys.map(function (k) {
+      return '<option value="' + escapeAttr(k) + '"' + (k === currentBranchKey ? ' selected' : '') + '>' +
+        escapeHtml(BRANCHES[k].name) + '</option>';
+    }).join('');
+  }
+
+  function switchBranch(key) {
+    if (!BRANCHES[key] || key === currentBranchKey) return;
+    localStorage.setItem('stockapp_branch', key);
+    location.reload();
+  }
+
   // ---------------- Init ----------------
   document.addEventListener('DOMContentLoaded', function () {
     applyLang();
+    initBranchSelector();
     if (!isApiConfigured()) {
       document.getElementById('setupBanner').classList.add('show');
       setSyncState('error');
@@ -1181,7 +1224,12 @@
     document.getElementById('txQtyLabel').textContent = t('txLabel' + type);
     document.getElementById('txQty').value = '';
     document.getElementById('txNote').value = '';
-    document.getElementById('txRequestedBy').value = '';
+    if (type === 'OUT') {
+      var rbSel = document.getElementById('txRequestedBy');
+      rbSel.innerHTML = '<option value="">' + t('requestedByPlaceholder') + '</option>' +
+        REQUESTED_BY_OPTIONS.map(function (n) { return '<option value="' + escapeAttr(n) + '">' + escapeHtml(n) + '</option>'; }).join('');
+      rbSel.value = '';
+    }
     document.getElementById('txRequestedByField').style.display = type === 'OUT' ? '' : 'none';
     document.getElementById('txErr').textContent = '';
     document.getElementById('txPreview').textContent = '';
