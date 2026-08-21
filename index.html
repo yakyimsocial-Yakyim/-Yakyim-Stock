@@ -468,6 +468,21 @@
 <button class="fab" onclick="openItemForm()" id="fabAddBtn" title="เพิ่มสินค้าใหม่">＋</button>
 
 <!-- ===== Modal: ตั้งชื่อผู้ใช้ ===== -->
+<div class="overlay" id="branchPinOverlay">
+  <div class="modal">
+    <h2 data-i18n="branchPinTitle">ยืนยันรหัสสาขา</h2>
+    <div class="sub" id="branchPinSub" data-i18n="branchPinSub">กรุณากรอกรหัสผ่านของสาขานี้ก่อนเข้าใช้งาน</div>
+    <div class="field">
+      <label data-i18n="branchPinLabel">รหัสผ่าน</label>
+      <input type="password" id="branchPinInput" inputmode="numeric" data-i18n-ph="branchPinPlaceholder" placeholder="กรอกรหัส" onkeydown="if(event.key==='Enter')submitBranchPin()">
+    </div>
+    <div class="err-text" id="branchPinErr"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary btn-block" id="branchPinSubmitBtn" onclick="submitBranchPin()" data-i18n="btnConfirm">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="nameOverlay">
   <div class="modal">
     <h2 data-i18n="nameModalTitle">คุณคือใคร?</h2>
@@ -606,13 +621,22 @@
   //   2. เปิด Apps Script ของสำเนานั้น → Deploy → New deployment → Web app → คัดลอก URL ที่ได้ (ลงท้ายด้วย /exec)
   //   3. เพิ่มรายการใหม่ในอ็อบเจกต์ BRANCHES ด้านล่างนี้ เช่น branch2: { name: 'สาขา 2', apiUrl: 'URL_ใหม่' }
   //   4. อัปโหลดไฟล์นี้ทับของเดิมบน GitHub อีกครั้ง — จะมีเมนูเลือกสาขาโผล่ขึ้นที่หัวเว็บอัตโนมัติ (ถ้ามีมากกว่า 1 สาขา)
+  // สาขา "yykj" และ "lite" ยังไม่มี Web app URL จริง (ยังไม่ได้สร้าง Google Sheet + Apps Script ของสาขานั้น)
+  // ทำตาม 4 ขั้นตอนด้านบนให้ครบสำหรับแต่ละสาขาก่อน แล้วนำ URL ที่ได้มาแทนที่ข้อความ PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE
+  // ตรงนี้ — ถ้ายังไม่แทนที่ พอเลือกสาขานั้นในเว็บจะขึ้น "ยังไม่ได้ตั้งค่า API" ให้เห็นเฉยๆ ไม่กระทบสาขาอื่น
   var BRANCHES = {
     main: {
-      name: 'Yak Yim Thai Kitchen',
+      name: 'Yakyim Thai Kitchen',
       apiUrl: 'https://script.google.com/macros/s/AKfycbzSudMYlSl6EJAkReZgXniUlfwWWTKwbgEEkM2WrCrfWTc4S-9TJVYKYTX5xCIc6UqJ4w/exec'
+    },
+    yykj: {
+      name: 'Yakyim YYKJ',
+      apiUrl: 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE'
+    },
+    lite: {
+      name: 'Yakyim Lite Thai Kitchen',
+      apiUrl: 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE'
     }
-    // ตัวอย่างสาขาที่ 2 (เอา // ออกแล้วใส่ชื่อ/URL จริงตอนมีสาขาใหม่):
-    // , branch2: { name: 'สาขา 2', apiUrl: 'https://script.google.com/macros/s/XXXXXXXXXXXXXXXX/exec' }
   };
   var currentBranchKey = localStorage.getItem('stockapp_branch') || 'main';
   if (!BRANCHES[currentBranchKey]) currentBranchKey = Object.keys(BRANCHES)[0];
@@ -646,6 +670,9 @@
       nameModalTitle: 'คุณคือใคร?', nameModalSub: 'ระบุชื่อของคุณ เพื่อบันทึกไว้ในประวัติการทำรายการ',
       nameLabel: 'ชื่อ-นามสกุล / ชื่อเล่น', namePlaceholder: 'เช่น สมชาย ใจดี',
       nameErrRequired: 'กรุณากรอกชื่อ', btnStart: 'เริ่มใช้งาน',
+      branchPinTitle: 'ยืนยันรหัสสาขา', branchPinSub: 'กรุณากรอกรหัสผ่านของสาขานี้ก่อนเข้าใช้งาน',
+      branchPinLabel: 'รหัสผ่าน', branchPinPlaceholder: 'กรอกรหัส',
+      errPinRequired: 'กรุณากรอกรหัสผ่าน', errPinIncorrect: 'รหัสผ่านไม่ถูกต้อง', btnChecking: 'กำลังตรวจสอบ...',
       itemFormTitleAdd: 'เพิ่มสินค้าใหม่', itemFormTitleEdit: 'แก้ไขสินค้า',
       itemFormSubAdd: 'กรอกรายละเอียดสินค้าที่ต้องการเพิ่มในระบบ',
       itemFormSubEdit: 'แก้ไขรายละเอียดสินค้า (จำนวนคงเหลือให้ใช้ปุ่มทำรายการที่หน้ารายการสินค้า)',
@@ -705,6 +732,9 @@
       nameModalTitle: 'Who are you?', nameModalSub: 'Enter your name so it is recorded in the transaction history',
       nameLabel: 'Full name / Nickname', namePlaceholder: 'e.g. John Smith',
       nameErrRequired: 'Please enter your name', btnStart: 'Get Started',
+      branchPinTitle: 'Confirm Branch Code', branchPinSub: 'Please enter this branch’s access code before continuing',
+      branchPinLabel: 'Access Code', branchPinPlaceholder: 'Enter code',
+      errPinRequired: 'Please enter the access code', errPinIncorrect: 'Incorrect code', btnChecking: 'Checking...',
       itemFormTitleAdd: 'Add New Item', itemFormTitleEdit: 'Edit Item',
       itemFormSubAdd: 'Fill in the details of the item you want to add',
       itemFormSubEdit: 'Edit item details (use the transaction buttons on the stock list to change quantity)',
@@ -870,6 +900,13 @@
       document.getElementById('itemList').innerHTML = '';
       return;
     }
+    checkBranchAccess().then(function (granted) {
+      if (granted) proceedAfterBranchUnlock();
+      // ถ้ายังไม่ผ่าน จะมีหน้าต่างขอรหัสสาขาโผล่ขึ้นมาแทน (openBranchPinModal ถูกเรียกไว้แล้วใน checkBranchAccess)
+    });
+  });
+
+  function proceedAfterBranchUnlock() {
     var savedName = localStorage.getItem('stockapp_user') || '';
     state.user = savedName;
     updateUserBadge();
@@ -878,7 +915,64 @@
     } else {
       loadData();
     }
-  });
+  }
+
+  // ---------------- Branch PIN gate (เตรียมไว้เผื่อสาขาไหนอยากล็อกด้วยรหัส) ----------------
+  // รหัสจริงถูกเก็บไว้ที่ Apps Script (Script Properties) ไม่ปรากฏอยู่ในโค้ดหน้าเว็บนี้เลย
+  // ถ้าสาขานั้นไม่ได้ตั้งรหัสไว้ ระบบจะข้ามขั้นตอนนี้ไปอัตโนมัติ ผู้ใช้จะไม่เห็นอะไรต่างจากเดิม
+  function branchUnlockKey_() {
+    return 'stockapp_branch_unlocked_' + currentBranchKey;
+  }
+
+  function checkBranchAccess() {
+    if (localStorage.getItem(branchUnlockKey_()) === '1') {
+      return Promise.resolve(true);
+    }
+    return apiCall('checkBranchPin', { pin: '' }).then(function (data) {
+      if (data && data.valid) {
+        localStorage.setItem(branchUnlockKey_(), '1');
+        return true;
+      }
+      openBranchPinModal();
+      return false;
+    }).catch(function () {
+      // เชื่อมต่อ API ไม่ได้ตั้งแต่ต้น ปล่อยผ่านไปให้ไปเจอ error ปกติของระบบแทน ไม่ให้ค้างอยู่ที่ด่านรหัส
+      return true;
+    });
+  }
+
+  function openBranchPinModal() {
+    document.getElementById('branchPinInput').value = '';
+    document.getElementById('branchPinErr').textContent = '';
+    document.getElementById('branchPinOverlay').classList.add('show');
+    setTimeout(function () { document.getElementById('branchPinInput').focus(); }, 50);
+  }
+
+  function submitBranchPin() {
+    var pin = document.getElementById('branchPinInput').value.trim();
+    var errBox = document.getElementById('branchPinErr');
+    if (!pin) { errBox.textContent = t('errPinRequired'); return; }
+
+    var btn = document.getElementById('branchPinSubmitBtn');
+    btn.disabled = true; btn.textContent = t('btnChecking');
+    errBox.textContent = '';
+
+    apiCall('checkBranchPin', { pin: pin })
+      .then(function (data) {
+        btn.disabled = false; btn.textContent = t('btnConfirm');
+        if (data && data.valid) {
+          localStorage.setItem(branchUnlockKey_(), '1');
+          closeModal('branchPinOverlay');
+          proceedAfterBranchUnlock();
+        } else {
+          errBox.textContent = t('errPinIncorrect');
+        }
+      })
+      .catch(function (err) {
+        btn.disabled = false; btn.textContent = t('btnConfirm');
+        errBox.textContent = err.message || err;
+      });
+  }
 
   function updateUserBadge() {
     document.getElementById('userBadgeName').textContent = state.user || t('userDefault');
