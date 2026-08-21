@@ -423,12 +423,12 @@
       <table class="log-table" id="logTable">
         <thead>
           <tr>
-            <th data-i18n="colTime">เวลา</th><th data-i18n="colUser">ผู้ใช้</th><th data-i18n="colType">ประเภท</th><th data-i18n="colItem">สินค้า</th>
+            <th data-i18n="colTime">เวลา</th><th data-i18n="colUser">ผู้ใช้</th><th data-i18n="colRequestedBy">ผู้เบิก</th><th data-i18n="colType">ประเภท</th><th data-i18n="colItem">สินค้า</th>
             <th data-i18n="colBefore">ก่อน</th><th data-i18n="colDelta">เปลี่ยนแปลง</th><th data-i18n="colAfter">หลัง</th><th data-i18n="colNote">หมายเหตุ</th>
           </tr>
         </thead>
         <tbody id="logTableBody">
-          <tr><td colspan="8" class="loading-row"><span class="spinner"></span><span data-i18n="loading">กำลังโหลด...</span></td></tr>
+          <tr><td colspan="9" class="loading-row"><span class="spinner"></span><span data-i18n="loading">กำลังโหลด...</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -544,6 +544,10 @@
       <input type="number" id="txQty" min="0" step="0.01" oninput="updateTxPreview()">
     </div>
     <div class="qty-preview" id="txPreview"></div>
+    <div class="field" id="txRequestedByField" style="display:none;">
+      <label data-i18n="requestedByLabel">ผู้เบิก</label>
+      <input type="text" id="txRequestedBy" data-i18n-ph="requestedByPlaceholder" placeholder="ชื่อคนที่เบิกของออกไป">
+    </div>
     <div class="field">
       <label data-i18n="noteLabel">หมายเหตุ (ถ้ามี)</label>
       <textarea id="txNote" data-i18n-ph="notePlaceholder" placeholder="เช่น รับจากซัพพลายเออร์ / นับสต๊อกประจำเดือน"></textarea>
@@ -631,6 +635,8 @@
       txTitleIN: 'รับสินค้าเข้า', txTitleOUT: 'จ่ายสินค้าออก', txTitleCOUNT: 'นับสต๊อก (ปรับยอดให้ตรง)',
       txLabelIN: 'จำนวนที่รับเข้า', txLabelOUT: 'จำนวนที่จ่ายออก', txLabelCOUNT: 'จำนวนที่นับได้จริง',
       noteLabel: 'หมายเหตุ (ถ้ามี)', notePlaceholder: 'เช่น รับจากซัพพลายเออร์ / นับสต๊อกประจำเดือน',
+      requestedByLabel: 'ผู้เบิก', requestedByPlaceholder: 'ชื่อคนที่เบิกของออกไป',
+      errRequestedByRequired: 'กรุณาระบุชื่อผู้เบิก',
       btnConfirm: 'ยืนยัน', currentStock: 'คงเหลือปัจจุบัน', was: 'เดิม',
       newStockWillBe: 'ยอดคงเหลือใหม่จะเป็น',
       freshReceiveTitle: 'รับของสด (คำนวณ Yield)',
@@ -638,7 +644,7 @@
       lossQtyLabel: 'จำนวน Loss', yieldPctLabel: '% Yield', lossPctLabel: '% Loss',
       freshNotePlaceholder: 'เช่น ล็อตวันนี้เนื้อไม่ค่อยสด',
       histSearchPlaceholder: 'ค้นหาสินค้า/ผู้ใช้...', btnFilter: 'กรอง',
-      colTime: 'เวลา', colUser: 'ผู้ใช้', colType: 'ประเภท', colItem: 'สินค้า',
+      colTime: 'เวลา', colUser: 'ผู้ใช้', colRequestedBy: 'ผู้เบิก', colType: 'ประเภท', colItem: 'สินค้า',
       colBefore: 'ก่อน', colDelta: 'เปลี่ยนแปลง', colAfter: 'หลัง', colNote: 'หมายเหตุ',
       colCategory: 'หมวดหมู่', colReceiveCount: 'จำนวนครั้งรับ', colAvgYield: 'Yield เฉลี่ย', colAvgLoss: 'Loss เฉลี่ย',
       colOrderSum: 'รวมตอนสั่ง', colCleanedSum: 'รวมหลังทำความสะอาด', colLossSum: 'รวม Loss',
@@ -688,6 +694,8 @@
       txTitleIN: 'Receive Stock In', txTitleOUT: 'Issue Stock Out', txTitleCOUNT: 'Stock Count (Adjust)',
       txLabelIN: 'Quantity Received', txLabelOUT: 'Quantity Issued', txLabelCOUNT: 'Actual Counted Quantity',
       noteLabel: 'Note (optional)', notePlaceholder: 'e.g. Received from supplier / Monthly stock count',
+      requestedByLabel: 'Requested By', requestedByPlaceholder: 'Name of the person taking out the stock',
+      errRequestedByRequired: 'Please enter the requester’s name',
       btnConfirm: 'Confirm', currentStock: 'Current stock', was: 'was',
       newStockWillBe: 'New stock will be',
       freshReceiveTitle: 'Receive Fresh Item (Yield Calculation)',
@@ -695,7 +703,7 @@
       lossQtyLabel: 'Loss Quantity', yieldPctLabel: '% Yield', lossPctLabel: '% Loss',
       freshNotePlaceholder: 'e.g. today’s batch was not very fresh',
       histSearchPlaceholder: 'Search item/user...', btnFilter: 'Filter',
-      colTime: 'Time', colUser: 'User', colType: 'Type', colItem: 'Item',
+      colTime: 'Time', colUser: 'User', colRequestedBy: 'Requested By', colType: 'Type', colItem: 'Item',
       colBefore: 'Before', colDelta: 'Change', colAfter: 'After', colNote: 'Note',
       colCategory: 'Category', colReceiveCount: 'Receipts', colAvgYield: 'Avg Yield', colAvgLoss: 'Avg Loss',
       colOrderSum: 'Total Ordered', colCleanedSum: 'Total After Cleaning', colLossSum: 'Total Loss',
@@ -1173,6 +1181,8 @@
     document.getElementById('txQtyLabel').textContent = t('txLabel' + type);
     document.getElementById('txQty').value = '';
     document.getElementById('txNote').value = '';
+    document.getElementById('txRequestedBy').value = '';
+    document.getElementById('txRequestedByField').style.display = type === 'OUT' ? '' : 'none';
     document.getElementById('txErr').textContent = '';
     document.getElementById('txPreview').textContent = '';
     document.getElementById('txOverlay').classList.add('show');
@@ -1199,13 +1209,17 @@
     var errBox = document.getElementById('txErr');
     if (qty === '' || isNaN(Number(qty))) { errBox.textContent = t('errQtyRequired'); return; }
 
+    var requestedBy = document.getElementById('txRequestedBy').value.trim();
+    if (ctx.type === 'OUT' && !requestedBy) { errBox.textContent = t('errRequestedByRequired'); return; }
+
     var btn = document.getElementById('txSubmitBtn');
     btn.disabled = true; btn.textContent = t('btnSaving');
     errBox.textContent = '';
 
     var payload = {
       code: ctx.code, type: ctx.type, qty: qty,
-      note: document.getElementById('txNote').value.trim(), user: state.user
+      note: document.getElementById('txNote').value.trim(), user: state.user,
+      requestedBy: requestedBy
     };
 
     apiCall('stockTransaction', payload)
@@ -1291,7 +1305,7 @@
   // ---------------- History ----------------
   function loadHistory() {
     var tbody = document.getElementById('logTableBody');
-    tbody.innerHTML = '<tr><td colspan="8" class="loading-row"><span class="spinner"></span>' + t('loading') + '</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="loading-row"><span class="spinner"></span>' + t('loading') + '</td></tr>';
     var filter = {
       q: document.getElementById('histSearch') ? document.getElementById('histSearch').value.trim() : '',
       dateFrom: document.getElementById('histFrom') ? document.getElementById('histFrom').value : '',
@@ -1304,7 +1318,7 @@
     state.lastLogs = logs;
     var tbody = document.getElementById('logTableBody');
     if (!logs || logs.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="8" class="loading-row">' + t('noHistory') + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="loading-row">' + t('noHistory') + '</td></tr>';
       return;
     }
     tbody.innerHTML = logs.map(function (l) {
@@ -1318,6 +1332,7 @@
       return '<tr>' +
         '<td>' + escapeHtml(l.time) + '</td>' +
         '<td>' + escapeHtml(l.user) + '</td>' +
+        '<td>' + escapeHtml(l.requestedBy || '') + '</td>' +
         '<td>' + escapeHtml(typeLabel) + '</td>' +
         '<td>' + escapeHtml(l.name) + ' <span style="color:var(--muted)">(' + escapeHtml(l.code) + ')</span></td>' +
         '<td>' + l.before + '</td>' +
