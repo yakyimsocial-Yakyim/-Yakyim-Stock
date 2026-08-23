@@ -407,13 +407,13 @@
     </div>
 
     <div class="filter-bar">
-      <input type="text" id="searchBox" data-i18n-ph="searchPlaceholder" placeholder="ค้นหาชื่อ/รหัสสินค้า..." oninput="renderItems()">
-      <select id="typeFilter" onchange="renderItems()">
+      <input type="text" id="searchBox" autocomplete="off" data-i18n-ph="searchPlaceholder" placeholder="ค้นหาชื่อ/รหัสสินค้า..." oninput="renderItems()">
+      <select id="typeFilter" autocomplete="off" onchange="renderItems()">
         <option value="" data-i18n="allTypes">ทุกประเภท</option>
         <option value="ของสด" data-i18n="typeFresh">ของสด</option>
         <option value="ของแห้ง" data-i18n="typeDry">ของแห้ง</option>
       </select>
-      <select id="categoryFilter" onchange="renderItems()">
+      <select id="categoryFilter" autocomplete="off" onchange="renderItems()">
         <option value="" data-i18n="allCategories">ทุกหมวดหมู่</option>
       </select>
       <div class="chip-toggle" id="quickFilterChip" onclick="clearQuickFilter()" data-i18n="quickFilterAll">แสดงทั้งหมด</div>
@@ -1043,6 +1043,15 @@
 
   // ---------------- Load data ----------------
   function loadData() {
+    // ล้างค่าค้นหา/ตัวกรองทุกครั้งที่เปิดหน้าเว็บใหม่ กันเบราว์เซอร์จำค่าเดิมที่เคยพิมพ์ไว้แล้วดันมากรองซ้ำ
+    // (ทำให้บางทีเปิดมาแล้วเจอ "ไม่พบสินค้า" ทั้งที่จริงมีของอยู่ เพราะมีคำค้นหาเก่าค้างอยู่ในช่องโดยไม่รู้ตัว)
+    var searchBoxEl = document.getElementById('searchBox');
+    var typeFilterEl = document.getElementById('typeFilter');
+    var categoryFilterEl = document.getElementById('categoryFilter');
+    if (searchBoxEl) searchBoxEl.value = '';
+    if (typeFilterEl) typeFilterEl.value = '';
+    if (categoryFilterEl) categoryFilterEl.value = '';
+
     document.getElementById('itemList').innerHTML = '<div class="loading-row"><span class="spinner"></span>' + t('loading') + '</div>';
     apiCall('getInitialData').then(onDataLoaded).catch(onError);
   }
