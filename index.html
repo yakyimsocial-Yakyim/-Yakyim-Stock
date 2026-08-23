@@ -223,17 +223,24 @@
   }
 
   /* ---------- Tables (history / yield report) ---------- */
-  .log-table-wrap { overflow-x: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; }
-  table.log-table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 640px; }
+  /* overflow-x: auto ยังจำเป็นไว้เผื่อจอแคบมากๆ แต่คอลัมน์ข้อความยาว (สินค้า/หมายเหตุ) ให้ตัดบรรทัดแทนการดันตารางกว้างเกินจอ */
+  .log-table-wrap { overflow-x: auto; background: var(--surface-2); border: 1px solid var(--border); border-radius: 14px; position: relative; }
+  table.log-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: auto; }
   table.log-table th {
     text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase;
     color: var(--muted); border-bottom: 1px solid var(--gridline); white-space: nowrap;
   }
   table.log-table td {
-    padding: 9px 12px; border-bottom: 1px solid var(--gridline); white-space: nowrap;
-    color: var(--text-primary);
+    padding: 9px 12px; border-bottom: 1px solid var(--gridline);
+    color: var(--text-primary); white-space: normal; word-break: break-word; vertical-align: top;
   }
+  table.log-table td.nowrap-cell { white-space: nowrap; }
   table.log-table tr:last-child td { border-bottom: none; }
+  /* เงาบางๆ ทางขวา เตือนว่ายังเลื่อนดูต่อได้อีก (โผล่เฉพาะตอนตารางกว้างเกินจอจริงๆ) */
+  .log-table-wrap.has-more-right::after {
+    content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 24px; pointer-events: none;
+    background: linear-gradient(to right, transparent, rgba(0,0,0,0.10));
+  }
   .delta-pos { color: var(--good); font-weight: 700; }
   .delta-neg { color: var(--critical); font-weight: 700; }
   .delta-zero { color: var(--muted); }
@@ -1031,6 +1038,7 @@
     if (tab === 'dashboard') renderDashboard();
     if (tab === 'history') loadHistory();
     if (tab === 'yield') loadYieldReport();
+    setTimeout(updateTableScrollHints, 50); // เผื่อกรณีตารางเพิ่งถูกโชว์ (display:none -> block) ต้องคำนวณความกว้างใหม่
   }
 
   // ---------------- Load data ----------------
@@ -1043,6 +1051,36 @@
     state.items = data.items;
     state.categories = data.categories;
     state.summary = data.summary;
+    renderCategoryOptions();
+    renderSummary();
+    renderItems();
+    if (state.currentTab === 'dashboard') renderDashboard();
+  }
+
+  // ---------------- Patch local state after a save (แทนการโหลดข้อมูลทั้งหมดใหม่) ----------------
+  // เร็วกว่าเดิมมาก เพราะฝั่งเซิร์ฟเวอร์ไม่ต้องอ่านทั้งชีตสินค้า+ประวัติซ้ำหลังทำรายการทุกครั้ง
+  // ตอบกลับมาแค่ "รายการที่เพิ่งแก้" แล้วอัปเดตเฉพาะจุดในหน้าเว็บแทน
+  // หมายเหตุ: ค่า "Yield เฉลี่ยวันนี้" (avgYieldToday) จะไม่อัปเดตทันทีด้วยวิธีนี้ ต้องรีเฟรชหน้าเว็บถึงจะเห็นค่าล่าสุด
+  function onItemSaved(data) {
+    if (data.item) {
+      var idx = state.items.findIndex(function (i) { return i.code === data.item.code; });
+      if (idx >= 0) state.items[idx] = data.item; else state.items.push(data.item);
+    } else if (data.deletedCode) {
+      state.items = state.items.filter(function (i) { return i.code !== data.deletedCode; });
+    }
+    if (data.summary) {
+      state.summary.totalItems = data.summary.totalItems;
+      state.summary.lowStock = data.summary.lowStock;
+      state.summary.outOfStock = data.summary.outOfStock;
+    }
+    if (data.logged) {
+      state.summary.todayTransactions = (state.summary.todayTransactions || 0) + 1;
+    }
+    if (!state.categories.length && state.items.length) {
+      state.categories = Array.from(new Set(state.items.map(function (i) { return i.category; }).filter(Boolean)));
+    } else if (data.item && data.item.category && state.categories.indexOf(data.item.category) === -1) {
+      state.categories.push(data.item.category);
+    }
     renderCategoryOptions();
     renderSummary();
     renderItems();
@@ -1131,13 +1169,14 @@
       var typeLabel = it.type === 'ของสด' ? t('typeFresh') : t('typeDry');
       return '<tr>' +
         '<td>' + escapeHtml(it.name) + ' <span style="color:var(--muted)">(' + escapeHtml(it.code) + ')</span></td>' +
-        '<td>' + typeLabel + '</td>' +
+        '<td class="nowrap-cell">' + typeLabel + '</td>' +
         '<td>' + escapeHtml(it.category) + '</td>' +
-        '<td>' + it.qty + ' ' + escapeHtml(it.unit || '') + '</td>' +
-        '<td>' + it.minQty + '</td>' +
-        '<td class="status-' + bucket + '">' + statusText + '</td>' +
+        '<td class="nowrap-cell">' + it.qty + ' ' + escapeHtml(it.unit || '') + '</td>' +
+        '<td class="nowrap-cell">' + it.minQty + '</td>' +
+        '<td class="nowrap-cell status-' + bucket + '">' + statusText + '</td>' +
       '</tr>';
     }).join('');
+    updateTableScrollHints();
   }
 
   // ---------------- Filters ----------------
@@ -1268,12 +1307,12 @@
 
     if (state.editingCode) {
       apiCall('updateItem', payload)
-        .then(function (data) { btn.disabled = false; btn.textContent = t('btnSave'); onDataLoaded(data); closeModal('itemFormOverlay'); showToast(t('toastSavedEdit')); })
+        .then(function (data) { btn.disabled = false; btn.textContent = t('btnSave'); onItemSaved(data); closeModal('itemFormOverlay'); showToast(t('toastSavedEdit')); })
         .catch(function (err) { btn.disabled = false; btn.textContent = t('btnSave'); errBox.textContent = err.message || err; });
     } else {
       payload.qty = document.getElementById('fQty').value || 0;
       apiCall('addItem', payload)
-        .then(function (data) { btn.disabled = false; btn.textContent = t('btnSave'); onDataLoaded(data); closeModal('itemFormOverlay'); showToast(t('toastAddedItem')); })
+        .then(function (data) { btn.disabled = false; btn.textContent = t('btnSave'); onItemSaved(data); closeModal('itemFormOverlay'); showToast(t('toastAddedItem')); })
         .catch(function (err) { btn.disabled = false; btn.textContent = t('btnSave'); errBox.textContent = err.message || err; });
     }
   }
@@ -1297,7 +1336,7 @@
     apiCall('deleteItem', { code: code, user: state.user })
       .then(function (data) {
         btn.disabled = false;
-        onDataLoaded(data);
+        onItemSaved(data);
         closeModal('itemFormOverlay');
         showToast(t('toastItemDeleted'));
       })
@@ -1367,7 +1406,7 @@
     apiCall('stockTransaction', payload)
       .then(function (data) {
         btn.disabled = false; btn.textContent = t('btnConfirm');
-        onDataLoaded(data);
+        onItemSaved(data);
         closeModal('txOverlay');
         showToast(t('toastTxSaved'));
       })
@@ -1434,7 +1473,7 @@
     apiCall('receiveFreshItem', payload)
       .then(function (data) {
         btn.disabled = false; btn.textContent = t('btnConfirm');
-        onDataLoaded(data);
+        onItemSaved(data);
         closeModal('freshOverlay');
         showToast(t('toastFreshSaved'));
       })
@@ -1472,17 +1511,18 @@
         note = 'Yield ' + l.yieldPct + '% / Loss ' + l.lossPct + '% (' + l.orderQty + ' → ' + l.cleanedQty + ')' + (note ? ' — ' + note : '');
       }
       return '<tr>' +
-        '<td>' + escapeHtml(l.time) + '</td>' +
-        '<td>' + escapeHtml(l.user) + '</td>' +
-        '<td>' + escapeHtml(l.requestedBy || '') + '</td>' +
-        '<td>' + escapeHtml(typeLabel) + '</td>' +
+        '<td class="nowrap-cell">' + escapeHtml(l.time) + '</td>' +
+        '<td class="nowrap-cell">' + escapeHtml(l.user) + '</td>' +
+        '<td class="nowrap-cell">' + escapeHtml(l.requestedBy || '') + '</td>' +
+        '<td class="nowrap-cell">' + escapeHtml(typeLabel) + '</td>' +
         '<td>' + escapeHtml(l.name) + ' <span style="color:var(--muted)">(' + escapeHtml(l.code) + ')</span></td>' +
-        '<td>' + l.before + '</td>' +
-        '<td class="' + deltaClass + '">' + deltaText + '</td>' +
-        '<td>' + l.after + '</td>' +
+        '<td class="nowrap-cell">' + l.before + '</td>' +
+        '<td class="nowrap-cell ' + deltaClass + '">' + deltaText + '</td>' +
+        '<td class="nowrap-cell">' + l.after + '</td>' +
         '<td>' + escapeHtml(note) + '</td>' +
       '</tr>';
     }).join('');
+    updateTableScrollHints();
   }
 
   // ---------------- Yield report ----------------
@@ -1509,15 +1549,25 @@
       return '<tr>' +
         '<td>' + escapeHtml(r.name) + ' <span style="color:var(--muted)">(' + escapeHtml(r.code) + ')</span></td>' +
         '<td>' + escapeHtml(r.category) + '</td>' +
-        '<td>' + r.count + '</td>' +
-        '<td class="' + yieldClass + '">' + r.avgYield + '%</td>' +
-        '<td>' + r.avgLoss + '%</td>' +
-        '<td>' + r.orderSum + ' ' + escapeHtml(r.unit) + '</td>' +
-        '<td>' + r.cleanedSum + ' ' + escapeHtml(r.unit) + '</td>' +
-        '<td>' + r.lossSum + ' ' + escapeHtml(r.unit) + '</td>' +
+        '<td class="nowrap-cell">' + r.count + '</td>' +
+        '<td class="nowrap-cell ' + yieldClass + '">' + r.avgYield + '%</td>' +
+        '<td class="nowrap-cell">' + r.avgLoss + '%</td>' +
+        '<td class="nowrap-cell">' + r.orderSum + ' ' + escapeHtml(r.unit) + '</td>' +
+        '<td class="nowrap-cell">' + r.cleanedSum + ' ' + escapeHtml(r.unit) + '</td>' +
+        '<td class="nowrap-cell">' + r.lossSum + ' ' + escapeHtml(r.unit) + '</td>' +
       '</tr>';
     }).join('');
+    updateTableScrollHints();
   }
+
+  // เช็คว่าตารางไหนยังกว้างเกินกรอบที่มองเห็น (ต้องเลื่อนดูต่อ) แล้วโชว์เงาบางๆ ทางขวาเป็นตัวเตือน
+  function updateTableScrollHints() {
+    document.querySelectorAll('.log-table-wrap').forEach(function (el) {
+      if (el.scrollWidth > el.clientWidth + 2) el.classList.add('has-more-right');
+      else el.classList.remove('has-more-right');
+    });
+  }
+  window.addEventListener('resize', updateTableScrollHints);
 
   // ---------------- Utils ----------------
   var toastTimer;
