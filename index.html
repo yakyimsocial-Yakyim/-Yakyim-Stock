@@ -273,6 +273,21 @@
   .modal-actions .btn { flex: 1; }
   .err-text { color: var(--critical); font-size: 13px; margin-top: 8px; min-height: 16px; }
   .qty-preview { font-size: 13px; color: var(--text-secondary); margin-top: -4px; margin-bottom: 12px; }
+  .manage-link {
+    font-size: 12px; color: var(--accent, #2563eb); cursor: pointer; margin-top: 6px; display: inline-block;
+  }
+  .manage-link:hover { text-decoration: underline; }
+  .requester-list { max-height: 220px; overflow-y: auto; margin-bottom: 14px; }
+  .requester-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 10px; border-bottom: 1px solid var(--gridline); font-size: 14px;
+  }
+  .requester-row:last-child { border-bottom: none; }
+  .btn-icon-remove {
+    background: none; border: none; color: var(--critical); font-size: 18px; line-height: 1;
+    cursor: pointer; padding: 2px 8px;
+  }
+  .btn-icon-remove:hover { background: var(--surface-1); border-radius: 6px; }
   .yield-preview {
     background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
     padding: 10px 12px; margin-bottom: 12px; font-size: 13px; display: none;
@@ -452,6 +467,11 @@
   <div id="viewDailyOut" style="display:none;">
     <div class="filter-bar">
       <input type="date" id="dailyOutDate" onchange="loadDailyOut()">
+      <select id="dailyOutType" autocomplete="off" onchange="loadDailyOut()">
+        <option value="" data-i18n="allTypes">ทุกประเภท</option>
+        <option value="ของสด" data-i18n="typeFresh">ของสด</option>
+        <option value="ของแห้ง" data-i18n="typeDry">ของแห้ง</option>
+      </select>
       <select id="dailyOutCategory" autocomplete="off" onchange="loadDailyOut()">
         <option value="" data-i18n="allCategories">ทุกหมวดหมู่</option>
       </select>
@@ -604,17 +624,6 @@
 </div>
 
 <!-- ===== Modal: ยืนยันการทำรายการ (ใช้ซ้ำได้ทั่วไป เช่น ยืนยันลบ) ===== -->
-<div class="overlay" id="confirmOverlay">
-  <div class="modal">
-    <h2 id="confirmTitle">ยืนยัน</h2>
-    <div class="sub" id="confirmSub"></div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('confirmOverlay')" data-i18n="btnCancel">ยกเลิก</button>
-      <button class="btn btn-danger" id="confirmActionBtn" onclick="runConfirmedAction()" data-i18n="btnConfirmDelete">ยืนยันลบ</button>
-    </div>
-  </div>
-</div>
-
 <!-- ===== Modal: ทำรายการสต๊อก (รับเข้า/จ่ายออก/นับสต๊อก) ===== -->
 <div class="overlay" id="txOverlay">
   <div class="modal">
@@ -628,6 +637,7 @@
     <div class="field" id="txRequestedByField" style="display:none;">
       <label data-i18n="requestedByLabel">ผู้เบิก</label>
       <select id="txRequestedBy"></select>
+      <div class="manage-link" onclick="openManageRequesters()" data-i18n="manageRequestersLink">+ จัดการรายชื่อผู้เบิก</div>
     </div>
     <div class="field">
       <label data-i18n="noteLabel">หมายเหตุ (ถ้ามี)</label>
@@ -637,6 +647,24 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('txOverlay')" data-i18n="btnCancel">ยกเลิก</button>
       <button class="btn btn-primary" id="txSubmitBtn" onclick="submitTransaction()" data-i18n="btnConfirm">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: จัดการรายชื่อผู้เบิก (เพิ่ม/ลบได้เองต่อสาขา) ===== -->
+<div class="overlay" id="manageRequestersOverlay">
+  <div class="modal">
+    <h2 data-i18n="manageRequestersTitle">จัดการรายชื่อผู้เบิก</h2>
+    <div class="sub" data-i18n="manageRequestersSub">เพิ่มหรือลบชื่อผู้เบิกของสาขานี้ได้เลย มีผลเฉพาะสาขาที่เลือกอยู่ตอนนี้</div>
+    <div id="requesterList" class="requester-list"></div>
+    <div class="field">
+      <label data-i18n="newRequesterLabel">เพิ่มชื่อใหม่</label>
+      <input type="text" id="newRequesterName" data-i18n-ph="newRequesterPlaceholder" placeholder="เช่น Jessi" onkeydown="if(event.key==='Enter')submitAddRequester()">
+    </div>
+    <div class="err-text" id="manageRequestersErr"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('manageRequestersOverlay')" data-i18n="btnClose">ปิด</button>
+      <button class="btn btn-primary" id="addRequesterBtn" onclick="submitAddRequester()" data-i18n="btnAdd">เพิ่มชื่อ</button>
     </div>
   </div>
 </div>
@@ -667,6 +695,20 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('freshOverlay')" data-i18n="btnCancel">ยกเลิก</button>
       <button class="btn btn-primary" id="freshSubmitBtn" onclick="submitFreshReceive()" data-i18n="btnConfirm">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: ยืนยันการทำรายการ (ใช้ซ้ำได้ทั่วไป) ===== -->
+<!-- ตั้งใจวางไว้เป็น overlay ตัวสุดท้ายในหน้านี้เสมอ เพื่อให้ลอยทับหน้าต่างอื่นได้ทุกกรณี
+     (เช่น กดลบชื่อผู้เบิกจากในหน้าต่าง "จัดการรายชื่อผู้เบิก" ที่เปิดค้างอยู่ ก็ต้องเห็นกล่องยืนยันนี้ทับขึ้นมาได้) -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal">
+    <h2 id="confirmTitle">ยืนยัน</h2>
+    <div class="sub" id="confirmSub"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('confirmOverlay')" data-i18n="btnCancel">ยกเลิก</button>
+      <button class="btn btn-danger" id="confirmActionBtn" onclick="runConfirmedAction()" data-i18n="btnConfirmDelete">ยืนยันลบ</button>
     </div>
   </div>
 </div>
@@ -702,8 +744,13 @@
   if (!BRANCHES[currentBranchKey]) currentBranchKey = Object.keys(BRANCHES)[0];
   var API_BASE_URL = BRANCHES[currentBranchKey].apiUrl;
 
-  // รายชื่อผู้เบิก (แก้ไข/เพิ่ม-ลดชื่อได้ตรงนี้)
-  var REQUESTED_BY_OPTIONS = ['Mai', 'Kan', 'Mon', 'Song', 'Puye', 'Aum', 'Cherry', 'Naiing', 'Aong', 'Mamochey', 'ma ma la'];
+  // รายชื่อผู้เบิกของแต่ละสาขา ตอนนี้ดึงมาจากชีต "ผู้เบิก" ของสาขานั้นๆ ผ่าน getInitialData() แทนแล้ว
+  // (เก็บไว้ใน state.requestedByOptions) เพิ่ม/ลบชื่อได้เองจากหน้าเว็บ (ปุ่ม "จัดการรายชื่อ" ตอนกดจ่ายของออก)
+  // ไม่ต้องแก้โค้ดตรงนี้อีกแล้ว แต่ละสาขาจะมีรายชื่อของตัวเองแยกกันอัตโนมัติเพราะคนละ Google Sheet กัน
+
+  // ค่าพิเศษไว้เลือกกรอง "สินค้าที่ยังไม่ได้ตั้งหมวดหมู่" (คอลัมน์หมวดหมู่ว่างเปล่าในชีต) จากช่องเลือกหมวดหมู่
+  // ต้องแยกจากค่าว่าง '' เพราะค่าว่างถูกใช้เป็น "ทุกหมวดหมู่" (ไม่กรอง) อยู่แล้ว
+  var UNCATEGORIZED_VALUE = '__uncategorized__';
 
   // ==================== i18n ====================
   var I18N = {
@@ -750,6 +797,15 @@
       noteLabel: 'หมายเหตุ (ถ้ามี)', notePlaceholder: 'เช่น รับจากซัพพลายเออร์ / นับสต๊อกประจำเดือน',
       requestedByLabel: 'ผู้เบิก', requestedByPlaceholder: '-- เลือกผู้เบิก --',
       errRequestedByRequired: 'กรุณาเลือกผู้เบิก',
+      manageRequestersLink: '+ จัดการรายชื่อผู้เบิก',
+      manageRequestersTitle: 'จัดการรายชื่อผู้เบิก',
+      manageRequestersSub: 'เพิ่มหรือลบชื่อผู้เบิกของสาขานี้ได้เลย มีผลเฉพาะสาขาที่เลือกอยู่ตอนนี้',
+      newRequesterLabel: 'เพิ่มชื่อใหม่', newRequesterPlaceholder: 'เช่น Jessi',
+      errRequesterNameRequired: 'กรุณากรอกชื่อผู้เบิก',
+      btnAdd: 'เพิ่มชื่อ', btnClose: 'ปิด', btnRemove: 'ลบ',
+      noRequesters: 'ยังไม่มีรายชื่อผู้เบิก',
+      deleteRequesterTitle: 'ยืนยันการลบชื่อผู้เบิกนี้',
+      toastRequesterAdded: 'เพิ่มชื่อผู้เบิกเรียบร้อย', toastRequesterRemoved: 'ลบชื่อผู้เบิกเรียบร้อย',
       btnConfirm: 'ยืนยัน', currentStock: 'คงเหลือปัจจุบัน', was: 'เดิม',
       newStockWillBe: 'ยอดคงเหลือใหม่จะเป็น',
       freshReceiveTitle: 'รับของสด (คำนวณ Yield)',
@@ -815,6 +871,15 @@
       noteLabel: 'Note (optional)', notePlaceholder: 'e.g. Received from supplier / Monthly stock count',
       requestedByLabel: 'Requested By', requestedByPlaceholder: '-- Select requester --',
       errRequestedByRequired: 'Please select a requester',
+      manageRequestersLink: '+ Manage requester list',
+      manageRequestersTitle: 'Manage Requester List',
+      manageRequestersSub: 'Add or remove requester names for this branch — only affects the branch currently selected',
+      newRequesterLabel: 'Add new name', newRequesterPlaceholder: 'e.g. Jessi',
+      errRequesterNameRequired: 'Please enter a requester name',
+      btnAdd: 'Add Name', btnClose: 'Close', btnRemove: 'Remove',
+      noRequesters: 'No requester names yet',
+      deleteRequesterTitle: 'Remove this requester name?',
+      toastRequesterAdded: 'Requester name added', toastRequesterRemoved: 'Requester name removed',
       btnConfirm: 'Confirm', currentStock: 'Current stock', was: 'was',
       newStockWillBe: 'New stock will be',
       freshReceiveTitle: 'Receive Fresh Item (Yield Calculation)',
@@ -844,6 +909,7 @@
     user: '',
     items: [],
     categories: [],
+    requestedByOptions: [],
     summary: {},
     currentTab: 'stock',
     quickFilter: 'all',
@@ -1126,6 +1192,7 @@
   function onDataLoaded(data) {
     state.items = data.items;
     state.categories = data.categories;
+    state.requestedByOptions = data.requestedByOptions || [];
     state.summary = data.summary;
     renderCategoryOptions();
     renderSummary();
@@ -1168,16 +1235,23 @@
   }
 
   function renderCategoryOptions() {
+    // ถ้ามีสินค้าที่ยังไม่ได้กรอกหมวดหมู่ไว้เลย (ค่าว่าง) ให้เพิ่มตัวเลือกพิเศษ "(ไม่ระบุหมวดหมู่)"
+    // ในช่องเลือกหมวดหมู่ด้วย เพื่อให้กรองดูเฉพาะกลุ่มนี้ได้ (ปกติค่าว่างจะไม่โผล่เป็นตัวเลือกเพราะถูกใช้แทน "ทุกหมวดหมู่" อยู่แล้ว)
+    var hasUncategorized = state.items.some(function (it) { return !it.category; });
+    var extraOption = hasUncategorized
+      ? '<option value="' + UNCATEGORIZED_VALUE + '">' + t('dailyOutUncategorized') + '</option>'
+      : '';
+
     var sel = document.getElementById('categoryFilter');
     var current = sel.value;
-    sel.innerHTML = '<option value="">' + t('allCategories') + '</option>' +
+    sel.innerHTML = '<option value="">' + t('allCategories') + '</option>' + extraOption +
       state.categories.map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('');
     sel.value = current;
 
     var dailySel = document.getElementById('dailyOutCategory');
     if (dailySel) {
       var dailyCurrent = dailySel.value;
-      dailySel.innerHTML = '<option value="">' + t('allCategories') + '</option>' +
+      dailySel.innerHTML = '<option value="">' + t('allCategories') + '</option>' + extraOption +
         state.categories.map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('');
       dailySel.value = dailyCurrent;
     }
@@ -1291,7 +1365,8 @@
     if (state.quickFilter === 'low') list = list.filter(function (it) { return it.qty <= it.minQty && it.qty > 0; });
     if (state.quickFilter === 'out') list = list.filter(function (it) { return it.qty <= 0; });
     if (typ) list = list.filter(function (it) { return it.type === typ; });
-    if (cat) list = list.filter(function (it) { return it.category === cat; });
+    if (cat === UNCATEGORIZED_VALUE) list = list.filter(function (it) { return !it.category; });
+    else if (cat) list = list.filter(function (it) { return it.category === cat; });
     if (q) list = list.filter(function (it) {
       return it.name.toLowerCase().indexOf(q) !== -1 || it.code.toLowerCase().indexOf(q) !== -1;
     });
@@ -1444,7 +1519,7 @@
     if (type === 'OUT') {
       var rbSel = document.getElementById('txRequestedBy');
       rbSel.innerHTML = '<option value="">' + t('requestedByPlaceholder') + '</option>' +
-        REQUESTED_BY_OPTIONS.map(function (n) { return '<option value="' + escapeAttr(n) + '">' + escapeHtml(n) + '</option>'; }).join('');
+        state.requestedByOptions.map(function (n) { return '<option value="' + escapeAttr(n) + '">' + escapeHtml(n) + '</option>'; }).join('');
       rbSel.value = '';
     }
     document.getElementById('txRequestedByField').style.display = type === 'OUT' ? '' : 'none';
@@ -1496,6 +1571,64 @@
       })
       .catch(function (err) {
         btn.disabled = false; btn.textContent = t('btnConfirm');
+        errBox.textContent = err.message || err;
+      });
+  }
+
+  // ---------------- จัดการรายชื่อผู้เบิก (เพิ่ม/ลบได้เองต่อสาขา ไม่ต้องแก้โค้ด) ----------------
+  function openManageRequesters() {
+    document.getElementById('newRequesterName').value = '';
+    document.getElementById('manageRequestersErr').textContent = '';
+    renderRequesterList();
+    document.getElementById('manageRequestersOverlay').classList.add('show');
+  }
+
+  function renderRequesterList() {
+    var box = document.getElementById('requesterList');
+    if (!state.requestedByOptions.length) {
+      box.innerHTML = '<div class="loading-row">' + t('noRequesters') + '</div>';
+      return;
+    }
+    box.innerHTML = state.requestedByOptions.map(function (n) {
+      return '<div class="requester-row"><span>' + escapeHtml(n) + '</span>' +
+        '<button type="button" class="btn-icon-remove" onclick="removeRequesterConfirm(\'' + escapeAttr(n).replace(/'/g, "\\'") + '\')" title="' + t('btnRemove') + '">&times;</button></div>';
+    }).join('');
+  }
+
+  function removeRequesterConfirm(name) {
+    askConfirm(t('deleteRequesterTitle'), name, function () { submitRemoveRequester(name); });
+  }
+
+  function submitRemoveRequester(name) {
+    apiCall('removeRequestedBy', { name: name, user: state.user })
+      .then(function (data) {
+        state.requestedByOptions = data.requestedByOptions || [];
+        renderRequesterList();
+        showToast(t('toastRequesterRemoved'));
+      })
+      .catch(onError);
+  }
+
+  function submitAddRequester() {
+    var input = document.getElementById('newRequesterName');
+    var name = input.value.trim();
+    var errBox = document.getElementById('manageRequestersErr');
+    if (!name) { errBox.textContent = t('errRequesterNameRequired'); return; }
+
+    var btn = document.getElementById('addRequesterBtn');
+    btn.disabled = true; btn.textContent = t('btnSaving');
+    errBox.textContent = '';
+
+    apiCall('addRequestedBy', { name: name, user: state.user })
+      .then(function (data) {
+        btn.disabled = false; btn.textContent = t('btnAdd');
+        state.requestedByOptions = data.requestedByOptions || [];
+        input.value = '';
+        renderRequesterList();
+        showToast(t('toastRequesterAdded'));
+      })
+      .catch(function (err) {
+        btn.disabled = false; btn.textContent = t('btnAdd');
         errBox.textContent = err.message || err;
       });
   }
@@ -1628,6 +1761,7 @@
       '<tr><td colspan="3" class="loading-row"><span class="spinner"></span>' + t('loading') + '</td></tr>';
 
     apiCall('getLogs', { dateFrom: date, dateTo: date }).then(function (logs) {
+      var typeFilter = document.getElementById('dailyOutType').value;
       var categoryFilter = document.getElementById('dailyOutCategory').value;
       var itemByCode = {};
       state.items.forEach(function (it) { itemByCode[it.code] = it; });
@@ -1639,13 +1773,18 @@
           return {
             time: l.time, code: l.code, name: l.name,
             category: (it && it.category) ? it.category : '',
+            itemType: it ? it.type : '',
             qtyOut: Math.abs(Number(l.delta) || 0),
             unit: it ? it.unit : '',
             requestedBy: l.requestedBy || '',
             note: l.note || ''
           };
         })
-        .filter(function (r) { return !categoryFilter || r.category === categoryFilter; });
+        .filter(function (r) { return !typeFilter || r.itemType === typeFilter; })
+        .filter(function (r) {
+          if (categoryFilter === UNCATEGORIZED_VALUE) return !r.category;
+          return !categoryFilter || r.category === categoryFilter;
+        });
 
       renderDailyOut(rows);
     }).catch(onError);
