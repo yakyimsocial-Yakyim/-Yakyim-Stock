@@ -752,6 +752,24 @@
   // ต้องแยกจากค่าว่าง '' เพราะค่าว่างถูกใช้เป็น "ทุกหมวดหมู่" (ไม่กรอง) อยู่แล้ว
   var UNCATEGORIZED_VALUE = '__uncategorized__';
 
+  // ป้ายกำกับหมวดหมู่ (category) สำหรับแสดงผลเป็นภาษาอังกฤษเมื่อสลับภาษา
+  // หมายเหตุ: ค่าที่เก็บจริงในชีต Google Sheets ยังคงเป็นภาษาไทยเหมือนเดิม (ไม่กระทบการกรอง/การบันทึกข้อมูล)
+  // นี่เป็นแค่ตารางแปลชื่อสำหรับ "แสดงผล" เท่านั้น — หมวดหมู่ใดที่ไม่มีอยู่ในตารางนี้จะแสดงชื่อเดิมตามที่กรอกไว้ในชีต
+  var CATEGORY_LABELS = {
+    'เครื่องดื่ม': 'Beverages',
+    'ของแห้ง': 'Dry Goods',
+    'เครื่องปรุง': 'Seasonings & Condiments',
+    'อื่นๆ (ไม่ใช่อาหาร/เครื่องดื่ม)': 'Other (Non-food/Beverage)',
+    'อื่นๆ': 'Others',
+    'ของสด': 'Fresh Items',
+    'เนื้อสัตว์': 'Meat',
+    'ผัก': 'Vegetables',
+    'ผลไม้': 'Fruits',
+    'อาหารทะเล': 'Seafood',
+    'ของใช้': 'Supplies',
+    'บรรจุภัณฑ์': 'Packaging'
+  };
+
   // ==================== i18n ====================
   var I18N = {
     th: {
@@ -920,6 +938,14 @@
 
   function t(key) { return (I18N[state.lang] && I18N[state.lang][key]) || key; }
 
+  // แปลชื่อหมวดหมู่ (category) สำหรับแสดงผลตามภาษาปัจจุบัน — ใช้ตอนแสดงผลเท่านั้น
+  // ค่าที่ใช้กรอง/บันทึก (value) ยังคงเป็นข้อความดิบจากชีตเสมอ ไม่ผ่านฟังก์ชันนี้
+  function categoryLabel(cat) {
+    if (!cat) return cat;
+    if (state.lang === 'en' && CATEGORY_LABELS.hasOwnProperty(cat)) return CATEGORY_LABELS[cat];
+    return cat;
+  }
+
   // ==================== API ====================
   var syncState = 'connecting'; // connecting | saving | synced | error
   var lastSyncedAt = null;
@@ -990,6 +1016,7 @@
     });
     updateUserBadge();
     renderSyncStatus();
+    renderCategoryOptions();
     renderItems();
     if (state.currentTab === 'dashboard') renderDashboard();
     if (state.currentTab === 'history') renderHistory(state.lastLogs || []);
@@ -1245,14 +1272,14 @@
     var sel = document.getElementById('categoryFilter');
     var current = sel.value;
     sel.innerHTML = '<option value="">' + t('allCategories') + '</option>' + extraOption +
-      state.categories.map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('');
+      state.categories.map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(categoryLabel(c)) + '</option>'; }).join('');
     sel.value = current;
 
     var dailySel = document.getElementById('dailyOutCategory');
     if (dailySel) {
       var dailyCurrent = dailySel.value;
       dailySel.innerHTML = '<option value="">' + t('allCategories') + '</option>' + extraOption +
-        state.categories.map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('');
+        state.categories.map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(categoryLabel(c)) + '</option>'; }).join('');
       dailySel.value = dailyCurrent;
     }
   }
@@ -1300,7 +1327,7 @@
         var pct = function (n) { return r.total > 0 ? (n / r.total * 100) : 0; };
         return '' +
           '<div class="dash-row">' +
-            '<div class="cat-label" title="' + escapeAttr(r.category) + '">' + escapeHtml(r.category) + '</div>' +
+            '<div class="cat-label" title="' + escapeAttr(categoryLabel(r.category)) + '">' + escapeHtml(categoryLabel(r.category)) + '</div>' +
             '<div class="bar-track">' +
               (r.normal > 0 ? '<div class="bar-seg normal" style="width:' + pct(r.normal) + '%"></div>' : '') +
               (r.low > 0 ? '<div class="bar-seg low" style="width:' + pct(r.low) + '%"></div>' : '') +
@@ -1328,7 +1355,7 @@
       return '<tr>' +
         '<td>' + escapeHtml(it.name) + ' <span style="color:var(--muted)">(' + escapeHtml(it.code) + ')</span></td>' +
         '<td class="nowrap-cell">' + typeLabel + '</td>' +
-        '<td>' + escapeHtml(it.category) + '</td>' +
+        '<td>' + escapeHtml(categoryLabel(it.category)) + '</td>' +
         '<td class="nowrap-cell">' + it.qty + ' ' + escapeHtml(it.unit || '') + '</td>' +
         '<td class="nowrap-cell">' + it.minQty + '</td>' +
         '<td class="nowrap-cell status-' + bucket + '">' + statusText + '</td>' +
@@ -1397,7 +1424,7 @@
         '<div class="item-top">' +
           '<div>' +
             '<div class="item-name">' + escapeHtml(it.name) + '</div>' +
-            '<div class="item-meta">' + escapeHtml(it.code) + (it.category ? ' • ' + escapeHtml(it.category) : '') + '</div>' +
+            '<div class="item-meta">' + escapeHtml(it.code) + (it.category ? ' • ' + escapeHtml(categoryLabel(it.category)) : '') + '</div>' +
             typeBadge + badge +
           '</div>' +
           '<div class="item-qty-wrap">' +
@@ -1794,35 +1821,37 @@
     state.lastDailyOutRows = rows;
 
     // ---- สรุปยอดตามหมวดหมู่ ----
+    // จัดกลุ่มด้วยชื่อหมวดหมู่ดิบ (rawCat) เสมอ ส่วนป้ายที่แสดงผล (label) ค่อยแปลตามภาษาที่เลือกไว้
     var byCat = {};
     rows.forEach(function (r) {
-      var cat = r.category || t('dailyOutUncategorized');
-      if (!byCat[cat]) byCat[cat] = { count: 0, units: {} };
-      byCat[cat].count++;
+      var rawCat = r.category || '';
+      if (!byCat[rawCat]) byCat[rawCat] = { count: 0, units: {}, label: rawCat ? categoryLabel(rawCat) : t('dailyOutUncategorized') };
+      byCat[rawCat].count++;
       var u = r.unit || '-';
-      byCat[cat].units[u] = (byCat[cat].units[u] || 0) + r.qtyOut;
+      byCat[rawCat].units[u] = (byCat[rawCat].units[u] || 0) + r.qtyOut;
     });
-    var catNames = Object.keys(byCat).sort();
+    var catKeys = Object.keys(byCat).sort(function (a, b) { return byCat[a].label.localeCompare(byCat[b].label); });
 
     var summaryBody = document.getElementById('dailyOutSummaryBody');
-    if (!catNames.length) {
+    if (!catKeys.length) {
       summaryBody.innerHTML = '<tr><td colspan="3" class="loading-row">' + t('noDailyOut') + '</td></tr>';
     } else {
-      summaryBody.innerHTML = catNames.map(function (cat) {
-        var units = byCat[cat].units;
+      summaryBody.innerHTML = catKeys.map(function (key) {
+        var group = byCat[key];
+        var units = group.units;
         var qtyText = Object.keys(units).sort().map(function (u) {
           return (Math.round(units[u] * 1000) / 1000) + ' ' + u;
         }).join(', ');
         return '<tr>' +
-          '<td>' + escapeHtml(cat) + '</td>' +
-          '<td class="nowrap-cell">' + byCat[cat].count + '</td>' +
+          '<td>' + escapeHtml(group.label) + '</td>' +
+          '<td class="nowrap-cell">' + group.count + '</td>' +
           '<td>' + escapeHtml(qtyText) + '</td>' +
         '</tr>';
       }).join('');
     }
 
     document.getElementById('dailyOutStatItemsVal').textContent = rows.length;
-    document.getElementById('dailyOutStatCatsVal').textContent = catNames.length;
+    document.getElementById('dailyOutStatCatsVal').textContent = catKeys.length;
 
     // ---- ตารางรายการทั้งหมด ----
     var tbody = document.getElementById('dailyOutTableBody');
@@ -1833,7 +1862,7 @@
         return '<tr>' +
           '<td class="nowrap-cell">' + escapeHtml(r.time) + '</td>' +
           '<td>' + escapeHtml(r.name) + ' <span style="color:var(--muted)">(' + escapeHtml(r.code) + ')</span></td>' +
-          '<td class="nowrap-cell">' + escapeHtml(r.category || t('dailyOutUncategorized')) + '</td>' +
+          '<td class="nowrap-cell">' + escapeHtml(r.category ? categoryLabel(r.category) : t('dailyOutUncategorized')) + '</td>' +
           '<td class="nowrap-cell">' + (Math.round(r.qtyOut * 1000) / 1000) + '</td>' +
           '<td class="nowrap-cell">' + escapeHtml(r.unit) + '</td>' +
           '<td class="nowrap-cell">' + escapeHtml(r.requestedBy) + '</td>' +
@@ -1867,7 +1896,7 @@
       var yieldClass = r.avgYield >= 85 ? 'yield-good' : (r.avgYield >= 70 ? 'yield-mid' : 'yield-low');
       return '<tr>' +
         '<td>' + escapeHtml(r.name) + ' <span style="color:var(--muted)">(' + escapeHtml(r.code) + ')</span></td>' +
-        '<td>' + escapeHtml(r.category) + '</td>' +
+        '<td>' + escapeHtml(categoryLabel(r.category)) + '</td>' +
         '<td class="nowrap-cell">' + r.count + '</td>' +
         '<td class="nowrap-cell ' + yieldClass + '">' + r.avgYield + '%</td>' +
         '<td class="nowrap-cell">' + r.avgLoss + '%</td>' +
