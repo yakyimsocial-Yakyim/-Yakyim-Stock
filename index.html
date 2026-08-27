@@ -327,6 +327,7 @@
     <button class="tab-btn" id="tabDashboardBtn" onclick="switchTab('dashboard')" data-i18n="tabDashboard">แดชบอร์ด</button>
     <button class="tab-btn active" id="tabStockBtn" onclick="switchTab('stock')" data-i18n="tabStock">สต๊อกสินค้า</button>
     <button class="tab-btn" id="tabHistoryBtn" onclick="switchTab('history')" data-i18n="tabHistory">ประวัติ</button>
+    <button class="tab-btn" id="tabDailyOutBtn" onclick="switchTab('dailyOut')" data-i18n="tabDailyOut">ตัดออกรายวัน</button>
     <button class="tab-btn" id="tabYieldBtn" onclick="switchTab('yield')" data-i18n="tabYield">รายงาน Yield</button>
   </div>
 
@@ -442,6 +443,58 @@
         </thead>
         <tbody id="logTableBody">
           <tr><td colspan="9" class="loading-row"><span class="spinner"></span><span data-i18n="loading">กำลังโหลด...</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ===== DAILY DEDUCTIONS VIEW (ตัดออกรายวัน) ===== -->
+  <div id="viewDailyOut" style="display:none;">
+    <div class="filter-bar">
+      <input type="date" id="dailyOutDate" onchange="loadDailyOut()">
+      <select id="dailyOutCategory" autocomplete="off" onchange="loadDailyOut()">
+        <option value="" data-i18n="allCategories">ทุกหมวดหมู่</option>
+      </select>
+      <button class="btn btn-secondary" onclick="loadDailyOut()" data-i18n="btnFilter">กรอง</button>
+    </div>
+
+    <div class="stats" id="dailyOutStats">
+      <div class="stat-tile" id="dailyOutStatItems">
+        <div class="label" data-i18n="dailyOutItemCount">จำนวนรายการที่ตัดออก</div>
+        <div class="value" id="dailyOutStatItemsVal">–</div>
+      </div>
+      <div class="stat-tile" id="dailyOutStatCats">
+        <div class="label" data-i18n="dailyOutCatCount">จำนวนหมวดหมู่ที่มีการตัดออก</div>
+        <div class="value" id="dailyOutStatCatsVal">–</div>
+      </div>
+    </div>
+
+    <div class="log-table-wrap" style="margin-bottom:16px;">
+      <table class="log-table" id="dailyOutSummaryTable">
+        <thead>
+          <tr>
+            <th data-i18n="colCategory">หมวดหมู่</th>
+            <th data-i18n="dailyOutItemCount">จำนวนรายการที่ตัดออก</th>
+            <th data-i18n="colQtyOut">จำนวนที่ตัดออก</th>
+          </tr>
+        </thead>
+        <tbody id="dailyOutSummaryBody">
+          <tr><td colspan="3" class="loading-row"><span class="spinner"></span><span data-i18n="loading">กำลังโหลด...</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="log-table-wrap">
+      <table class="log-table" id="dailyOutTable">
+        <thead>
+          <tr>
+            <th data-i18n="colTime">เวลา</th><th data-i18n="colItem">สินค้า</th><th data-i18n="colCategory">หมวดหมู่</th>
+            <th data-i18n="colQtyOut">จำนวนที่ตัดออก</th><th data-i18n="colUnit">หน่วย</th>
+            <th data-i18n="colRequestedBy">ผู้เบิก</th><th data-i18n="colNote">หมายเหตุ</th>
+          </tr>
+        </thead>
+        <tbody id="dailyOutTableBody">
+          <tr><td colspan="7" class="loading-row"><span class="spinner"></span><span data-i18n="loading">กำลังโหลด...</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -662,7 +715,10 @@
       syncedAgo: 'ซิงค์ล่าสุด', justNow: 'เมื่อสักครู่', secAgo: ' วินาทีที่แล้ว', minAgo: ' นาทีที่แล้ว', hourAgo: ' ชั่วโมงที่แล้ว',
       setupBannerTitle: 'ยังไม่ได้ตั้งค่า API',
       setupBannerBody: 'เปิดไฟล์ index.html แล้วแก้ตัวแปร API_BASE_URL บรรทัดบนสุดของสคริปต์ ให้เป็น URL ของ Apps Script Web app ที่ deploy ไว้ (ดูคู่มือขึ้นเว็บบน GitHub Pages)',
-      tabDashboard: 'แดชบอร์ด', tabStock: 'สต๊อกสินค้า', tabHistory: 'ประวัติ', tabYield: 'รายงาน Yield',
+      tabDashboard: 'แดชบอร์ด', tabStock: 'สต๊อกสินค้า', tabHistory: 'ประวัติ', tabDailyOut: 'ตัดออกรายวัน', tabYield: 'รายงาน Yield',
+      dailyOutItemCount: 'จำนวนรายการที่ตัดออก', dailyOutCatCount: 'จำนวนหมวดหมู่ที่มีการตัดออก',
+      colQtyOut: 'จำนวนที่ตัดออก', colUnit: 'หน่วย',
+      noDailyOut: 'ไม่มีรายการจ่ายออกในวันที่/หมวดหมู่ที่เลือก', dailyOutUncategorized: '(ไม่ระบุหมวดหมู่)',
       statusNormal: 'ปกติ', colQty: 'คงเหลือ', colMinQty: 'ขั้นต่ำ', colStatus: 'สถานะ',
       statTotal: 'สินค้าทั้งหมด', statLow: 'ใกล้หมด/ต้องเติม', statOut: 'หมดสต๊อก',
       statToday: 'ทำรายการวันนี้', statYield: 'Yield เฉลี่ยวันนี้',
@@ -724,7 +780,10 @@
       syncedAgo: 'Synced', justNow: 'just now', secAgo: 's ago', minAgo: 'm ago', hourAgo: 'h ago',
       setupBannerTitle: 'API not configured yet',
       setupBannerBody: 'Open index.html and edit the API_BASE_URL variable at the top of the script to your deployed Apps Script Web app URL (see the GitHub Pages setup guide)',
-      tabDashboard: 'Dashboard', tabStock: 'Stock', tabHistory: 'History', tabYield: 'Yield Report',
+      tabDashboard: 'Dashboard', tabStock: 'Stock', tabHistory: 'History', tabDailyOut: 'Daily Deductions', tabYield: 'Yield Report',
+      dailyOutItemCount: 'Items Deducted', dailyOutCatCount: 'Categories With Deductions',
+      colQtyOut: 'Qty Out', colUnit: 'Unit',
+      noDailyOut: 'No deductions for the selected date/category', dailyOutUncategorized: '(Uncategorized)',
       statusNormal: 'Normal', colQty: 'Qty', colMinQty: 'Min', colStatus: 'Status',
       statTotal: 'Total Items', statLow: 'Low Stock', statOut: 'Out of Stock',
       statToday: 'Transactions Today', statYield: 'Avg Yield Today',
@@ -868,6 +927,7 @@
     renderItems();
     if (state.currentTab === 'dashboard') renderDashboard();
     if (state.currentTab === 'history') renderHistory(state.lastLogs || []);
+    if (state.currentTab === 'dailyOut') renderDailyOut(state.lastDailyOutRows || []);
     if (state.currentTab === 'yield') renderYieldReport(state.lastYieldReport || []);
     if (state.quickFilter !== 'all') setQuickFilter(state.quickFilter);
   }
@@ -1029,14 +1089,21 @@
     document.getElementById('viewDashboard').style.display = tab === 'dashboard' ? '' : 'none';
     document.getElementById('viewStock').style.display = tab === 'stock' ? '' : 'none';
     document.getElementById('viewHistory').style.display = tab === 'history' ? '' : 'none';
+    document.getElementById('viewDailyOut').style.display = tab === 'dailyOut' ? '' : 'none';
     document.getElementById('viewYield').style.display = tab === 'yield' ? '' : 'none';
     document.getElementById('fabAddBtn').style.display = tab === 'stock' ? '' : 'none';
     document.getElementById('tabDashboardBtn').classList.toggle('active', tab === 'dashboard');
     document.getElementById('tabStockBtn').classList.toggle('active', tab === 'stock');
     document.getElementById('tabHistoryBtn').classList.toggle('active', tab === 'history');
+    document.getElementById('tabDailyOutBtn').classList.toggle('active', tab === 'dailyOut');
     document.getElementById('tabYieldBtn').classList.toggle('active', tab === 'yield');
     if (tab === 'dashboard') renderDashboard();
     if (tab === 'history') loadHistory();
+    if (tab === 'dailyOut') {
+      var dateEl = document.getElementById('dailyOutDate');
+      if (dateEl && !dateEl.value) dateEl.value = todayDateStr_();
+      loadDailyOut();
+    }
     if (tab === 'yield') loadYieldReport();
     setTimeout(updateTableScrollHints, 50); // เผื่อกรณีตารางเพิ่งถูกโชว์ (display:none -> block) ต้องคำนวณความกว้างใหม่
   }
@@ -1106,6 +1173,14 @@
     sel.innerHTML = '<option value="">' + t('allCategories') + '</option>' +
       state.categories.map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('');
     sel.value = current;
+
+    var dailySel = document.getElementById('dailyOutCategory');
+    if (dailySel) {
+      var dailyCurrent = dailySel.value;
+      dailySel.innerHTML = '<option value="">' + t('allCategories') + '</option>' +
+        state.categories.map(function (c) { return '<option value="' + escapeHtml(c) + '">' + escapeHtml(c) + '</option>'; }).join('');
+      dailySel.value = dailyCurrent;
+    }
   }
 
   function renderSummary() {
@@ -1531,6 +1606,102 @@
         '<td>' + escapeHtml(note) + '</td>' +
       '</tr>';
     }).join('');
+    updateTableScrollHints();
+  }
+
+  // ---------------- Daily deductions (ตัดออกรายวัน) ----------------
+  // ใช้ getLogs API ตัวเดิม (มี dateFrom/dateTo ให้กรองในเซิร์ฟเวอร์แล้ว ไม่ต้องเพิ่ม action ใหม่)
+  // จากนั้นกรองเฉพาะรายการ "จ่ายออก" ในฝั่งหน้าเว็บ แล้วจับคู่หมวดหมู่จากรายการสินค้าปัจจุบัน (state.items) ด้วยรหัสสินค้า
+  function todayDateStr_() {
+    var d = new Date();
+    var pad = function (n) { return n < 10 ? '0' + n : n; };
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function loadDailyOut() {
+    var dateEl = document.getElementById('dailyOutDate');
+    var date = dateEl.value || todayDateStr_();
+    dateEl.value = date;
+    var tbody = document.getElementById('dailyOutTableBody');
+    tbody.innerHTML = '<tr><td colspan="7" class="loading-row"><span class="spinner"></span>' + t('loading') + '</td></tr>';
+    document.getElementById('dailyOutSummaryBody').innerHTML =
+      '<tr><td colspan="3" class="loading-row"><span class="spinner"></span>' + t('loading') + '</td></tr>';
+
+    apiCall('getLogs', { dateFrom: date, dateTo: date }).then(function (logs) {
+      var categoryFilter = document.getElementById('dailyOutCategory').value;
+      var itemByCode = {};
+      state.items.forEach(function (it) { itemByCode[it.code] = it; });
+
+      var rows = (logs || [])
+        .filter(function (l) { return l.type === 'จ่ายออก'; })
+        .map(function (l) {
+          var it = itemByCode[l.code];
+          return {
+            time: l.time, code: l.code, name: l.name,
+            category: (it && it.category) ? it.category : '',
+            qtyOut: Math.abs(Number(l.delta) || 0),
+            unit: it ? it.unit : '',
+            requestedBy: l.requestedBy || '',
+            note: l.note || ''
+          };
+        })
+        .filter(function (r) { return !categoryFilter || r.category === categoryFilter; });
+
+      renderDailyOut(rows);
+    }).catch(onError);
+  }
+
+  function renderDailyOut(rows) {
+    state.lastDailyOutRows = rows;
+
+    // ---- สรุปยอดตามหมวดหมู่ ----
+    var byCat = {};
+    rows.forEach(function (r) {
+      var cat = r.category || t('dailyOutUncategorized');
+      if (!byCat[cat]) byCat[cat] = { count: 0, units: {} };
+      byCat[cat].count++;
+      var u = r.unit || '-';
+      byCat[cat].units[u] = (byCat[cat].units[u] || 0) + r.qtyOut;
+    });
+    var catNames = Object.keys(byCat).sort();
+
+    var summaryBody = document.getElementById('dailyOutSummaryBody');
+    if (!catNames.length) {
+      summaryBody.innerHTML = '<tr><td colspan="3" class="loading-row">' + t('noDailyOut') + '</td></tr>';
+    } else {
+      summaryBody.innerHTML = catNames.map(function (cat) {
+        var units = byCat[cat].units;
+        var qtyText = Object.keys(units).sort().map(function (u) {
+          return (Math.round(units[u] * 1000) / 1000) + ' ' + u;
+        }).join(', ');
+        return '<tr>' +
+          '<td>' + escapeHtml(cat) + '</td>' +
+          '<td class="nowrap-cell">' + byCat[cat].count + '</td>' +
+          '<td>' + escapeHtml(qtyText) + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    document.getElementById('dailyOutStatItemsVal').textContent = rows.length;
+    document.getElementById('dailyOutStatCatsVal').textContent = catNames.length;
+
+    // ---- ตารางรายการทั้งหมด ----
+    var tbody = document.getElementById('dailyOutTableBody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="loading-row">' + t('noDailyOut') + '</td></tr>';
+    } else {
+      tbody.innerHTML = rows.map(function (r) {
+        return '<tr>' +
+          '<td class="nowrap-cell">' + escapeHtml(r.time) + '</td>' +
+          '<td>' + escapeHtml(r.name) + ' <span style="color:var(--muted)">(' + escapeHtml(r.code) + ')</span></td>' +
+          '<td class="nowrap-cell">' + escapeHtml(r.category || t('dailyOutUncategorized')) + '</td>' +
+          '<td class="nowrap-cell">' + (Math.round(r.qtyOut * 1000) / 1000) + '</td>' +
+          '<td class="nowrap-cell">' + escapeHtml(r.unit) + '</td>' +
+          '<td class="nowrap-cell">' + escapeHtml(r.requestedBy) + '</td>' +
+          '<td>' + escapeHtml(r.note) + '</td>' +
+        '</tr>';
+      }).join('');
+    }
     updateTableScrollHints();
   }
 
