@@ -264,6 +264,7 @@
   .modal .sub { color: var(--text-secondary); font-size: 13px; margin-bottom: 14px; }
   .field { margin-bottom: 12px; }
   .field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; }
+  .hint-text { font-size: 12px; color: var(--text-secondary); margin-top: 4px; min-height: 15px; }
   .field input, .field select, .field textarea {
     width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
     background: var(--surface-1); color: var(--text-primary);
@@ -593,7 +594,7 @@
     </div>
     <div class="field">
       <label data-i18n="fieldType">ประเภทสินค้า</label>
-      <select id="fType">
+      <select id="fType" onchange="updateNetWeightFieldVisibility()">
         <option value="ของสด" data-i18n="typeFresh">ของสด</option>
         <option value="ของแห้ง" data-i18n="typeDry">ของแห้ง</option>
       </select>
@@ -605,6 +606,10 @@
     <div class="field">
       <label data-i18n="fieldUnit">หน่วยนับ</label>
       <input type="text" id="fUnit" data-i18n-ph="unitPlaceholder" placeholder="เช่น ชิ้น, กล่อง, แพ็ค">
+    </div>
+    <div class="field" id="fNetWeightWrap">
+      <label data-i18n="fieldNetWeightPerUnit">น้ำหนักสุทธิต่อหน่วย (กรัม) — ถ้าซื้อวัตถุดิบเป็นกิโลแต่นับสต๊อกเป็นหน่วยอื่น</label>
+      <input type="number" id="fNetWeightPerUnit" min="0" step="0.01" data-i18n-ph="netWeightPerUnitPlaceholder" placeholder="เช่น 180 (ถ้าไม่ต้องแปลงหน่วยให้เว้นว่างไว้)">
     </div>
     <div class="field" id="fQtyWrap">
       <label data-i18n="fieldQty">จำนวนคงเหลือเริ่มต้น</label>
@@ -674,13 +679,19 @@
   <div class="modal">
     <h2 data-i18n="freshReceiveTitle">รับของสด (คำนวณ Yield)</h2>
     <div class="sub" id="freshSub"></div>
-    <div class="field">
+    <div class="field" id="freshRawWeightWrap" style="display:none;">
+      <label data-i18n="rawWeightKgLabel">น้ำหนักวัตถุดิบที่ซื้อมา (กิโลกรัม)</label>
+      <input type="number" id="freshRawWeightKg" min="0" step="0.001" oninput="updateFreshPreview()">
+      <div class="hint-text" id="freshConvertedOrderHint"></div>
+    </div>
+    <div class="field" id="freshOrderQtyWrap">
       <label data-i18n="orderQtyLabel">จำนวน/น้ำหนักตอนสั่ง</label>
       <input type="number" id="freshOrderQty" min="0" step="0.01" oninput="updateFreshPreview()">
     </div>
     <div class="field">
       <label data-i18n="cleanedQtyLabel">จำนวน/น้ำหนักหลังทำความสะอาด</label>
       <input type="number" id="freshCleanedQty" min="0" step="0.01" oninput="updateFreshPreview()">
+      <div class="hint-text" id="freshCleanedHint"></div>
     </div>
     <div class="yield-preview" id="freshPreview">
       <div class="row"><span data-i18n="lossQtyLabel">จำนวน Loss</span><b id="freshPreviewLossQty">–</b></div>
@@ -807,8 +818,10 @@
       fieldCode: 'รหัสสินค้า', fieldName: 'ชื่อสินค้า', fieldType: 'ประเภทสินค้า',
       fieldCategory: 'หมวดหมู่', fieldUnit: 'หน่วยนับ',
       fieldQty: 'จำนวนคงเหลือเริ่มต้น', fieldMinQty: 'จำนวนขั้นต่ำ (แจ้งเตือนเมื่อต่ำกว่านี้)',
+      fieldNetWeightPerUnit: 'น้ำหนักสุทธิต่อหน่วย (กรัม) — ถ้าซื้อวัตถุดิบเป็นกิโลแต่นับสต๊อกเป็นหน่วยอื่น',
       codePlaceholder: 'เช่น SKU-001', itemNamePlaceholder: 'เช่น กระดาษ A4',
       categoryPlaceholder: 'เช่น เครื่องเขียน', unitPlaceholder: 'เช่น ชิ้น, กล่อง, แพ็ค, กิโลกรัม',
+      netWeightPerUnitPlaceholder: 'เช่น 180 (ถ้าไม่ต้องแปลงหน่วยให้เว้นว่างไว้)',
       btnCancel: 'ยกเลิก', btnSave: 'บันทึก', btnSaving: 'กำลังบันทึก...',
       txTitleIN: 'รับสินค้าเข้า', txTitleOUT: 'จ่ายสินค้าออก', txTitleCOUNT: 'นับสต๊อก (ปรับยอดให้ตรง)',
       txLabelIN: 'จำนวนที่รับเข้า', txLabelOUT: 'จำนวนที่จ่ายออก', txLabelCOUNT: 'จำนวนที่นับได้จริง',
@@ -830,6 +843,10 @@
       orderQtyLabel: 'จำนวน/น้ำหนักตอนสั่ง', cleanedQtyLabel: 'จำนวน/น้ำหนักหลังทำความสะอาด',
       lossQtyLabel: 'จำนวน Loss', yieldPctLabel: '% Yield', lossPctLabel: '% Loss',
       freshNotePlaceholder: 'เช่น ล็อตวันนี้เนื้อไม่ค่อยสด',
+      rawWeightKgLabel: 'น้ำหนักวัตถุดิบที่ซื้อมา (กิโลกรัม)',
+      theoreticalUnitSuffix: '(จำนวนตามทฤษฎี ก่อนหักเสีย)',
+      cleanedUnitQtyHint: 'กรอกจำนวน {unit} จริงที่แบ่ง/ตัดแต่งได้ (นับจริง ไม่ต้องคำนวณ)',
+      rawWeightNotePrefix: 'วัตถุดิบดิบ {kg} กก.',
       histSearchPlaceholder: 'ค้นหาสินค้า/ผู้ใช้...', btnFilter: 'กรอง',
       colTime: 'เวลา', colUser: 'ผู้ใช้', colRequestedBy: 'ผู้เบิก', colType: 'ประเภท', colItem: 'สินค้า',
       colBefore: 'ก่อน', colDelta: 'เปลี่ยนแปลง', colAfter: 'หลัง', colNote: 'หมายเหตุ',
@@ -881,8 +898,10 @@
       fieldCode: 'Item Code', fieldName: 'Item Name', fieldType: 'Item Type',
       fieldCategory: 'Category', fieldUnit: 'Unit',
       fieldQty: 'Initial Stock Quantity', fieldMinQty: 'Minimum Quantity (alert when below this)',
+      fieldNetWeightPerUnit: 'Net Weight per Unit (grams) — if raw material is bought by the kilo but stocked in another unit',
       codePlaceholder: 'e.g. SKU-001', itemNamePlaceholder: 'e.g. A4 Paper',
       categoryPlaceholder: 'e.g. Stationery', unitPlaceholder: 'e.g. Piece, Box, Pack, Kilogram',
+      netWeightPerUnitPlaceholder: 'e.g. 180 (leave blank if no conversion is needed)',
       btnCancel: 'Cancel', btnSave: 'Save', btnSaving: 'Saving...',
       txTitleIN: 'Receive Stock In', txTitleOUT: 'Issue Stock Out', txTitleCOUNT: 'Stock Count (Adjust)',
       txLabelIN: 'Quantity Received', txLabelOUT: 'Quantity Issued', txLabelCOUNT: 'Actual Counted Quantity',
@@ -904,6 +923,10 @@
       orderQtyLabel: 'Order Quantity/Weight', cleanedQtyLabel: 'Quantity/Weight After Cleaning',
       lossQtyLabel: 'Loss Quantity', yieldPctLabel: '% Yield', lossPctLabel: '% Loss',
       freshNotePlaceholder: 'e.g. today’s batch was not very fresh',
+      rawWeightKgLabel: 'Raw Material Weight Purchased (kilograms)',
+      theoreticalUnitSuffix: '(theoretical quantity, before loss)',
+      cleanedUnitQtyHint: 'Enter the actual number of {unit} you portioned/trimmed out (a real count, no calculation needed)',
+      rawWeightNotePrefix: 'Raw material {kg} kg',
       histSearchPlaceholder: 'Search item/user...', btnFilter: 'Filter',
       colTime: 'Time', colUser: 'User', colRequestedBy: 'Requested By', colType: 'Type', colItem: 'Item',
       colBefore: 'Before', colDelta: 'Change', colAfter: 'After', colNote: 'Note',
@@ -1460,6 +1483,7 @@
       document.getElementById('fCategory').value = it.category;
       document.getElementById('fUnit').value = it.unit;
       document.getElementById('fMinQty').value = it.minQty;
+      document.getElementById('fNetWeightPerUnit').value = it.netWeightPerUnit ? it.netWeightPerUnit : '';
     } else {
       document.getElementById('fCode').value = '';
       document.getElementById('fCode').disabled = false;
@@ -1469,8 +1493,16 @@
       document.getElementById('fUnit').value = '';
       document.getElementById('fQty').value = '';
       document.getElementById('fMinQty').value = '';
+      document.getElementById('fNetWeightPerUnit').value = '';
     }
+    updateNetWeightFieldVisibility();
     document.getElementById('itemFormOverlay').classList.add('show');
+  }
+
+  // ช่อง "น้ำหนักสุทธิต่อหน่วย" มีประโยชน์เฉพาะสินค้า "ของสด" เท่านั้น (ของแห้งไม่เกี่ยวกับการรับของสด/คำนวณ Yield)
+  function updateNetWeightFieldVisibility() {
+    var isFresh = document.getElementById('fType').value === 'ของสด';
+    document.getElementById('fNetWeightWrap').style.display = isFresh ? '' : 'none';
   }
 
   function submitItemForm() {
@@ -1480,6 +1512,7 @@
     var category = document.getElementById('fCategory').value.trim();
     var unit = document.getElementById('fUnit').value.trim();
     var minQty = document.getElementById('fMinQty').value;
+    var netWeightPerUnit = document.getElementById('fNetWeightPerUnit').value;
     var errBox = document.getElementById('itemFormErr');
 
     if (!code || !name) { errBox.textContent = t('errCodeNameRequired'); return; }
@@ -1489,7 +1522,7 @@
     btn.disabled = true; btn.textContent = t('btnSaving');
     errBox.textContent = '';
 
-    var payload = { code: code, name: name, type: type, category: category, unit: unit, minQty: minQty, user: state.user };
+    var payload = { code: code, name: name, type: type, category: category, unit: unit, minQty: minQty, netWeightPerUnit: netWeightPerUnit, user: state.user };
 
     if (state.editingCode) {
       apiCall('updateItem', payload)
@@ -1664,23 +1697,58 @@
   function openFresh(code) {
     if (!state.user) { openNameModal(); return; }
     var it = state.items.filter(function (i) { return i.code === code; })[0];
-    state.freshContext = { code: code, item: it };
+    // useConversion = true เมื่อสินค้านี้ตั้งค่า "น้ำหนักสุทธิต่อหน่วย" ไว้ (เช่น 1 เซ็ท = 180 กรัม)
+    // หมายความว่าวัตถุดิบที่ซื้อมาเป็นกิโลกรัม แต่สต๊อกนับเป็นหน่วยอื่น (เซ็ท/ชิ้น) — ต้องแปลงหน่วยก่อนคำนวณ Yield
+    var useConversion = !!(it && Number(it.netWeightPerUnit) > 0);
+    state.freshContext = { code: code, item: it, useConversion: useConversion };
 
     document.getElementById('freshSub').textContent = it.name + ' • ' + t('currentStock') + ' ' + it.qty + ' ' + (it.unit || '');
+    document.getElementById('freshRawWeightWrap').style.display = useConversion ? '' : 'none';
+    document.getElementById('freshOrderQtyWrap').style.display = useConversion ? 'none' : '';
+    document.getElementById('freshRawWeightKg').value = '';
+    document.getElementById('freshConvertedOrderHint').textContent = '';
     document.getElementById('freshOrderQty').value = '';
     document.getElementById('freshCleanedQty').value = '';
+    document.getElementById('freshCleanedHint').textContent = useConversion
+      ? t('cleanedUnitQtyHint').replace('{unit}', it.unit || '')
+      : '';
     document.getElementById('freshNote').value = '';
     document.getElementById('freshErr').textContent = '';
     document.getElementById('freshPreview').classList.remove('show');
     document.getElementById('freshOverlay').classList.add('show');
-    setTimeout(function () { document.getElementById('freshOrderQty').focus(); }, 50);
+    setTimeout(function () {
+      document.getElementById(useConversion ? 'freshRawWeightKg' : 'freshOrderQty').focus();
+    }, 50);
+  }
+
+  // คำนวณ "จำนวนตอนสั่ง" ที่แปลงมาจากน้ำหนักดิบ (กก.) เป็นหน่วยของสินค้า (เช่น เซ็ท) — คืนค่า NaN ถ้ากรอกไม่ครบ/ไม่ถูกต้อง
+  function computeConvertedOrderQty_() {
+    var ctx = state.freshContext;
+    var rawKgStr = document.getElementById('freshRawWeightKg').value;
+    var hintEl = document.getElementById('freshConvertedOrderHint');
+    var netWeightPerUnit = Number(ctx.item.netWeightPerUnit) || 0;
+    if (rawKgStr === '' || !netWeightPerUnit) {
+      hintEl.textContent = '';
+      return NaN;
+    }
+    var rawKg = Number(rawKgStr);
+    if (isNaN(rawKg) || rawKg <= 0) {
+      hintEl.textContent = '';
+      return NaN;
+    }
+    var order = (rawKg * 1000) / netWeightPerUnit;
+    var orderRounded = Math.round(order * 100) / 100;
+    hintEl.textContent = '≈ ' + orderRounded + ' ' + (ctx.item.unit || '') + ' ' + t('theoreticalUnitSuffix');
+    return order;
   }
 
   function updateFreshPreview() {
-    var order = Number(document.getElementById('freshOrderQty').value);
+    var ctx = state.freshContext;
+    if (!ctx) return;
+    var order = ctx.useConversion ? computeConvertedOrderQty_() : Number(document.getElementById('freshOrderQty').value);
     var cleaned = Number(document.getElementById('freshCleanedQty').value);
     var box = document.getElementById('freshPreview');
-    var orderStr = document.getElementById('freshOrderQty').value;
+    var orderStr = ctx.useConversion ? document.getElementById('freshRawWeightKg').value : document.getElementById('freshOrderQty').value;
     var cleanedStr = document.getElementById('freshCleanedQty').value;
     if (orderStr === '' || cleanedStr === '' || isNaN(order) || isNaN(cleaned) || order <= 0) {
       box.classList.remove('show');
@@ -1689,7 +1757,7 @@
     var lossQty = Math.round((order - cleaned) * 1000) / 1000;
     var yieldPct = Math.round((cleaned / order) * 1000) / 10;
     var lossPct = Math.round((100 - yieldPct) * 10) / 10;
-    document.getElementById('freshPreviewLossQty').textContent = lossQty + ' ' + (state.freshContext.item.unit || '');
+    document.getElementById('freshPreviewLossQty').textContent = lossQty + ' ' + (ctx.item.unit || '');
     document.getElementById('freshPreviewYield').textContent = yieldPct + '%';
     document.getElementById('freshPreviewLoss').textContent = lossPct + '%';
     box.classList.add('show');
@@ -1697,21 +1765,37 @@
 
   function submitFreshReceive() {
     var ctx = state.freshContext;
-    var order = document.getElementById('freshOrderQty').value;
-    var cleaned = document.getElementById('freshCleanedQty').value;
     var errBox = document.getElementById('freshErr');
+    var order, autoNotePrefix = '';
 
-    if (order === '' || isNaN(Number(order)) || Number(order) <= 0) { errBox.textContent = t('errQtyRequired'); return; }
+    if (ctx.useConversion) {
+      var rawKgStr = document.getElementById('freshRawWeightKg').value;
+      var rawKg = Number(rawKgStr);
+      if (rawKgStr === '' || isNaN(rawKg) || rawKg <= 0) { errBox.textContent = t('errQtyRequired'); return; }
+      order = computeConvertedOrderQty_();
+      // เก็บน้ำหนักดิบที่กรอกไว้ในหมายเหตุอัตโนมัติ เพื่อให้ย้อนดูประวัติภายหลังได้ว่าตอนนั้นซื้อวัตถุดิบมากี่กิโล
+      autoNotePrefix = t('rawWeightNotePrefix').replace('{kg}', rawKg) + ' — ';
+    } else {
+      var orderStr = document.getElementById('freshOrderQty').value;
+      if (orderStr === '' || isNaN(Number(orderStr)) || Number(orderStr) <= 0) { errBox.textContent = t('errQtyRequired'); return; }
+      order = Number(orderStr);
+    }
+
+    var cleaned = document.getElementById('freshCleanedQty').value;
     if (cleaned === '' || isNaN(Number(cleaned)) || Number(cleaned) < 0) { errBox.textContent = t('errQtyRequired'); return; }
-    if (Number(cleaned) > Number(order)) { errBox.textContent = t('errCleanedExceedsOrder'); return; }
+    if (Number(cleaned) > order) { errBox.textContent = t('errCleanedExceedsOrder'); return; }
 
     var btn = document.getElementById('freshSubmitBtn');
     btn.disabled = true; btn.textContent = t('btnSaving');
     errBox.textContent = '';
 
+    var userNote = document.getElementById('freshNote').value.trim();
     var payload = {
-      code: ctx.code, orderQty: order, cleanedQty: cleaned,
-      note: document.getElementById('freshNote').value.trim(), user: state.user
+      code: ctx.code,
+      orderQty: Math.round(order * 1000) / 1000,
+      cleanedQty: cleaned,
+      note: (autoNotePrefix + userNote).replace(/ — $/, ''),
+      user: state.user
     };
 
     apiCall('receiveFreshItem', payload)
