@@ -265,6 +265,8 @@
   .field { margin-bottom: 12px; }
   .field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; }
   .hint-text { font-size: 12px; color: var(--text-secondary); margin-top: 4px; min-height: 15px; }
+  .checkbox-field label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 400; color: var(--text-primary); cursor: pointer; }
+  .checkbox-field input[type="checkbox"] { width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
   .field input, .field select, .field textarea {
     width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
     background: var(--surface-1); color: var(--text-primary);
@@ -345,6 +347,7 @@
     <button class="tab-btn" id="tabHistoryBtn" onclick="switchTab('history')" data-i18n="tabHistory">ประวัติ</button>
     <button class="tab-btn" id="tabDailyOutBtn" onclick="switchTab('dailyOut')" data-i18n="tabDailyOut">ตัดออกรายวัน</button>
     <button class="tab-btn" id="tabYieldBtn" onclick="switchTab('yield')" data-i18n="tabYield">รายงาน Yield</button>
+    <button class="tab-btn" id="tabDrinkCheckBtn" onclick="switchTab('drinkCheck')" data-i18n="tabDrinkCheck" style="display:none;">เช็คสต๊อกเครื่องดื่ม</button>
   </div>
 
   <!-- ===== DASHBOARD VIEW ===== -->
@@ -544,6 +547,51 @@
       </table>
     </div>
   </div>
+
+  <!-- ===== DRINK CHECK VIEW (เช็คสต๊อกเครื่องดื่ม 2 รอบ/วัน) ===== -->
+  <div id="viewDrinkCheck" style="display:none;">
+    <div class="sub" data-i18n="drinkCheckSub">เช็คยอดสินค้าที่ขายเองไม่มีพนักงานเฝ้า (เช่น เครื่องดื่ม) เทียบกับยอดในระบบ เพื่อดูว่าหายไปเท่าไรก่อนเรียกเก็บเงิน</div>
+    <div class="filter-bar">
+      <select id="drinkCheckSession" autocomplete="off">
+        <option value="เช้า" data-i18n="sessionMorning">เช้า</option>
+        <option value="เย็น" data-i18n="sessionEvening">เย็น</option>
+      </select>
+      <input type="text" id="drinkCheckNote" data-i18n-ph="drinkCheckNotePlaceholder" placeholder="หมายเหตุ (ถ้ามี)">
+      <button class="btn btn-secondary" onclick="loadDrinkCheck()" data-i18n="btnRefresh">รีเฟรช</button>
+    </div>
+    <div class="log-table-wrap">
+      <table class="log-table" id="drinkCheckTable">
+        <thead>
+          <tr>
+            <th data-i18n="colItem">สินค้า</th>
+            <th data-i18n="drinkCheckExpectedQty">ยอดที่ควรมี</th>
+            <th data-i18n="drinkCheckCountedQty">นับได้จริง</th>
+            <th data-i18n="drinkCheckMissingQty">หายไป</th>
+          </tr>
+        </thead>
+        <tbody id="drinkCheckTableBody">
+          <tr><td colspan="4" class="loading-row"><span class="spinner"></span><span data-i18n="loading">กำลังโหลด...</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="err-text" id="drinkCheckErr"></div>
+    <div class="modal-actions" style="margin-top:16px; justify-content:flex-start;">
+      <button class="btn btn-primary" id="drinkCheckSubmitBtn" onclick="submitDrinkCheck()" data-i18n="btnSaveCount">บันทึกผลการนับ</button>
+    </div>
+    <div class="log-table-wrap" id="drinkCheckResultWrap" style="display:none; margin-top:16px;">
+      <table class="log-table" id="drinkCheckResultTable">
+        <thead>
+          <tr>
+            <th data-i18n="colItem">สินค้า</th>
+            <th data-i18n="drinkCheckExpectedQty">ยอดที่ควรมี</th>
+            <th data-i18n="drinkCheckCountedQty">นับได้จริง</th>
+            <th data-i18n="drinkCheckMissingQty">หายไป</th>
+          </tr>
+        </thead>
+        <tbody id="drinkCheckResultBody"></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <button class="fab" onclick="openItemForm()" id="fabAddBtn" title="เพิ่มสินค้าใหม่">＋</button>
@@ -618,6 +666,12 @@
     <div class="field">
       <label data-i18n="fieldMinQty">จำนวนขั้นต่ำ (แจ้งเตือนเมื่อต่ำกว่านี้)</label>
       <input type="number" id="fMinQty" step="0.01" placeholder="0">
+    </div>
+    <div class="field checkbox-field">
+      <label>
+        <input type="checkbox" id="fDailyCheck">
+        <span data-i18n="fieldDailyCheck">ต้องเช็คสต๊อกเช้า-เย็น (เช่น ขายเองไม่มีพนักงานเฝ้า)</span>
+      </label>
     </div>
     <div class="err-text" id="itemFormErr"></div>
     <div class="modal-actions">
@@ -795,6 +849,7 @@
       setupBannerTitle: 'ยังไม่ได้ตั้งค่า API',
       setupBannerBody: 'เปิดไฟล์ index.html แล้วแก้ตัวแปร API_BASE_URL บรรทัดบนสุดของสคริปต์ ให้เป็น URL ของ Apps Script Web app ที่ deploy ไว้ (ดูคู่มือขึ้นเว็บบน GitHub Pages)',
       tabDashboard: 'แดชบอร์ด', tabStock: 'สต๊อกสินค้า', tabHistory: 'ประวัติ', tabDailyOut: 'ตัดออกรายวัน', tabYield: 'รายงาน Yield',
+      tabDrinkCheck: 'เช็คสต๊อกเครื่องดื่ม',
       dailyOutItemCount: 'จำนวนรายการที่ตัดออก', dailyOutCatCount: 'จำนวนหมวดหมู่ที่มีการตัดออก',
       colQtyOut: 'จำนวนที่ตัดออก', colUnit: 'หน่วย',
       noDailyOut: 'ไม่มีรายการจ่ายออกในวันที่/หมวดหมู่ที่เลือก', dailyOutUncategorized: '(ไม่ระบุหมวดหมู่)',
@@ -856,6 +911,14 @@
       colCategory: 'หมวดหมู่', colReceiveCount: 'จำนวนครั้งรับ', colAvgYield: 'Yield เฉลี่ย', colAvgLoss: 'Loss เฉลี่ย',
       colOrderSum: 'รวมตอนสั่ง', colCleanedSum: 'รวมหลังทำความสะอาด', colLossSum: 'รวม Loss',
       noHistory: 'ยังไม่มีประวัติการทำรายการ', noYieldData: 'ยังไม่มีข้อมูล Yield ในช่วงที่เลือก',
+      fieldDailyCheck: 'ต้องเช็คสต๊อกเช้า-เย็น (เช่น ขายเองไม่มีพนักงานเฝ้า)',
+      drinkCheckSub: 'เช็คยอดสินค้าที่ขายเองไม่มีพนักงานเฝ้า (เช่น เครื่องดื่ม) เทียบกับยอดในระบบ เพื่อดูว่าหายไปเท่าไรก่อนเรียกเก็บเงิน',
+      sessionMorning: 'เช้า', sessionEvening: 'เย็น',
+      drinkCheckNotePlaceholder: 'หมายเหตุ (ถ้ามี)',
+      drinkCheckExpectedQty: 'ยอดที่ควรมี', drinkCheckCountedQty: 'นับได้จริง', drinkCheckMissingQty: 'หายไป',
+      btnSaveCount: 'บันทึกผลการนับ', btnRefresh: 'รีเฟรช',
+      errDrinkCheckEmpty: 'กรุณากรอกจำนวนที่นับได้อย่างน้อย 1 รายการ',
+      toastDrinkCheckSaved: 'บันทึกผลการนับเรียบร้อย',
       toastSavedEdit: 'บันทึกการแก้ไขแล้ว', toastAddedItem: 'เพิ่มสินค้าเรียบร้อย',
       toastTxSaved: 'บันทึกรายการเรียบร้อย', toastFreshSaved: 'บันทึกการรับของสดเรียบร้อย',
       toastItemDeleted: 'ลบสินค้าเรียบร้อยแล้ว',
@@ -875,6 +938,7 @@
       setupBannerTitle: 'API not configured yet',
       setupBannerBody: 'Open index.html and edit the API_BASE_URL variable at the top of the script to your deployed Apps Script Web app URL (see the GitHub Pages setup guide)',
       tabDashboard: 'Dashboard', tabStock: 'Stock', tabHistory: 'History', tabDailyOut: 'Daily Deductions', tabYield: 'Yield Report',
+      tabDrinkCheck: 'Drink Stock Check',
       dailyOutItemCount: 'Items Deducted', dailyOutCatCount: 'Categories With Deductions',
       colQtyOut: 'Qty Out', colUnit: 'Unit',
       noDailyOut: 'No deductions for the selected date/category', dailyOutUncategorized: '(Uncategorized)',
@@ -936,6 +1000,14 @@
       colCategory: 'Category', colReceiveCount: 'Receipts', colAvgYield: 'Avg Yield', colAvgLoss: 'Avg Loss',
       colOrderSum: 'Total Ordered', colCleanedSum: 'Total After Cleaning', colLossSum: 'Total Loss',
       noHistory: 'No transaction history yet', noYieldData: 'No yield data for the selected range',
+      fieldDailyCheck: 'Needs morning/evening stock check (e.g. self-serve, unstaffed)',
+      drinkCheckSub: 'Check unstaffed self-serve items (e.g. drinks) against the system quantity to see how much is missing before charging for it',
+      sessionMorning: 'Morning', sessionEvening: 'Evening',
+      drinkCheckNotePlaceholder: 'Note (optional)',
+      drinkCheckExpectedQty: 'Expected Qty', drinkCheckCountedQty: 'Counted Qty', drinkCheckMissingQty: 'Missing',
+      btnSaveCount: 'Save Count', btnRefresh: 'Refresh',
+      errDrinkCheckEmpty: 'Please enter a counted quantity for at least one item',
+      toastDrinkCheckSaved: 'Count saved successfully',
       toastSavedEdit: 'Changes saved', toastAddedItem: 'Item added successfully',
       toastTxSaved: 'Transaction saved', toastFreshSaved: 'Fresh item receipt saved',
       toastItemDeleted: 'Item deleted successfully',
@@ -1210,12 +1282,14 @@
     document.getElementById('viewHistory').style.display = tab === 'history' ? '' : 'none';
     document.getElementById('viewDailyOut').style.display = tab === 'dailyOut' ? '' : 'none';
     document.getElementById('viewYield').style.display = tab === 'yield' ? '' : 'none';
+    document.getElementById('viewDrinkCheck').style.display = tab === 'drinkCheck' ? '' : 'none';
     document.getElementById('fabAddBtn').style.display = tab === 'stock' ? '' : 'none';
     document.getElementById('tabDashboardBtn').classList.toggle('active', tab === 'dashboard');
     document.getElementById('tabStockBtn').classList.toggle('active', tab === 'stock');
     document.getElementById('tabHistoryBtn').classList.toggle('active', tab === 'history');
     document.getElementById('tabDailyOutBtn').classList.toggle('active', tab === 'dailyOut');
     document.getElementById('tabYieldBtn').classList.toggle('active', tab === 'yield');
+    document.getElementById('tabDrinkCheckBtn').classList.toggle('active', tab === 'drinkCheck');
     if (tab === 'dashboard') renderDashboard();
     if (tab === 'history') loadHistory();
     if (tab === 'dailyOut') {
@@ -1224,6 +1298,7 @@
       loadDailyOut();
     }
     if (tab === 'yield') loadYieldReport();
+    if (tab === 'drinkCheck') loadDrinkCheck();
     setTimeout(updateTableScrollHints, 50); // เผื่อกรณีตารางเพิ่งถูกโชว์ (display:none -> block) ต้องคำนวณความกว้างใหม่
   }
 
@@ -1250,7 +1325,17 @@
     renderCategoryOptions();
     renderSummary();
     renderItems();
+    updateDrinkCheckTabVisibility();
     if (state.currentTab === 'dashboard') renderDashboard();
+  }
+
+  // แท็บ "เช็คสต๊อกเครื่องดื่ม" จะโชว์เฉพาะตอนสาขานี้มีสินค้าที่ตั้งค่า "ตรวจนับเช้า-เย็น" ไว้อย่างน้อย 1 รายการ
+  // (สาขาที่ยังไม่ได้ใช้ฟีเจอร์นี้จะไม่เห็นแท็บนี้เลย ไม่ต้องรกหน้าจอโดยไม่จำเป็น)
+  function updateDrinkCheckTabVisibility() {
+    var hasDrinkCheckItems = state.items.some(function (it) { return it.dailyCheck; });
+    var btn = document.getElementById('tabDrinkCheckBtn');
+    btn.style.display = hasDrinkCheckItems ? '' : 'none';
+    if (!hasDrinkCheckItems && state.currentTab === 'drinkCheck') switchTab('stock');
   }
 
   // ---------------- Patch local state after a save (แทนการโหลดข้อมูลทั้งหมดใหม่) ----------------
@@ -1280,6 +1365,7 @@
     renderCategoryOptions();
     renderSummary();
     renderItems();
+    updateDrinkCheckTabVisibility();
     if (state.currentTab === 'dashboard') renderDashboard();
   }
 
@@ -1487,6 +1573,7 @@
       document.getElementById('fUnit').value = it.unit;
       document.getElementById('fMinQty').value = it.minQty;
       document.getElementById('fNetWeightPerUnit').value = it.netWeightPerUnit ? it.netWeightPerUnit : '';
+      document.getElementById('fDailyCheck').checked = !!it.dailyCheck;
     } else {
       document.getElementById('fCode').value = '';
       document.getElementById('fCode').disabled = false;
@@ -1497,6 +1584,7 @@
       document.getElementById('fQty').value = '';
       document.getElementById('fMinQty').value = '';
       document.getElementById('fNetWeightPerUnit').value = '';
+      document.getElementById('fDailyCheck').checked = false;
     }
     updateNetWeightFieldVisibility();
     document.getElementById('itemFormOverlay').classList.add('show');
@@ -1516,6 +1604,7 @@
     var unit = document.getElementById('fUnit').value.trim();
     var minQty = document.getElementById('fMinQty').value;
     var netWeightPerUnit = document.getElementById('fNetWeightPerUnit').value;
+    var dailyCheck = document.getElementById('fDailyCheck').checked;
     var errBox = document.getElementById('itemFormErr');
 
     if (!code || !name) { errBox.textContent = t('errCodeNameRequired'); return; }
@@ -1525,7 +1614,7 @@
     btn.disabled = true; btn.textContent = t('btnSaving');
     errBox.textContent = '';
 
-    var payload = { code: code, name: name, type: type, category: category, unit: unit, minQty: minQty, netWeightPerUnit: netWeightPerUnit, user: state.user };
+    var payload = { code: code, name: name, type: type, category: category, unit: unit, minQty: minQty, netWeightPerUnit: netWeightPerUnit, dailyCheck: dailyCheck, user: state.user };
 
     if (state.editingCode) {
       apiCall('updateItem', payload)
@@ -1992,6 +2081,129 @@
         '<td class="nowrap-cell">' + r.lossSum + ' ' + escapeHtml(r.unit) + '</td>' +
       '</tr>';
     }).join('');
+    updateTableScrollHints();
+  }
+
+  // ---------------- Drink Check (เช็คสต๊อกเครื่องดื่ม 2 รอบ/วัน) ----------------
+  // สำหรับสินค้าที่ตั้งค่า "ตรวจนับเช้า-เย็น" ไว้ (เช่น เครื่องดื่มขายเองไม่มีพนักงานเฝ้า)
+  // แสดงยอดที่ควรมีในระบบเทียบกับที่นับได้จริง คำนวณ "หายไปเท่าไร" ให้ทันทีตอนพิมพ์ ก่อนกดบันทึกจริง
+  function loadDrinkCheck() {
+    document.getElementById('drinkCheckErr').textContent = '';
+    document.getElementById('drinkCheckResultWrap').style.display = 'none';
+    document.getElementById('drinkCheckResultBody').innerHTML = '';
+    renderDrinkCheck();
+  }
+
+  function renderDrinkCheck() {
+    var tbody = document.getElementById('drinkCheckTableBody');
+    var items = state.items.filter(function (it) { return it.status === 'ใช้งาน' && it.dailyCheck; });
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="loading-row">' + t('emptyState') + '</td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(function (it) {
+      return '<tr>' +
+        '<td>' + escapeHtml(it.name) + ' <span style="color:var(--muted)">(' + escapeHtml(it.code) + ')</span></td>' +
+        '<td class="nowrap-cell">' + it.qty + ' ' + escapeHtml(it.unit || '') + '</td>' +
+        '<td class="nowrap-cell">' +
+          '<input type="number" min="0" step="0.01" class="drink-check-input" style="width:90px;" ' +
+            'data-code="' + escapeAttr(it.code) + '" data-expected="' + it.qty + '" oninput="updateDrinkCheckRow(this)">' +
+        '</td>' +
+        '<td class="nowrap-cell" id="drinkCheckMissing_' + escapeAttr(it.code) + '">–</td>' +
+      '</tr>';
+    }).join('');
+    updateTableScrollHints();
+  }
+
+  function updateDrinkCheckRow(inputEl) {
+    var code = inputEl.getAttribute('data-code');
+    var expected = Number(inputEl.getAttribute('data-expected'));
+    var cell = document.getElementById('drinkCheckMissing_' + code);
+    if (inputEl.value === '' || isNaN(Number(inputEl.value))) {
+      cell.textContent = '–';
+      cell.style.color = '';
+      return;
+    }
+    var counted = Number(inputEl.value);
+    var missing = Math.round((expected - counted) * 1000) / 1000;
+    if (missing > 0) {
+      cell.textContent = '-' + missing;
+      cell.style.color = 'var(--critical)';
+    } else if (missing < 0) {
+      cell.textContent = '+' + Math.abs(missing);
+      cell.style.color = 'var(--good)';
+    } else {
+      cell.textContent = '0';
+      cell.style.color = '';
+    }
+  }
+
+  function submitDrinkCheck() {
+    if (!state.user) { openNameModal(); return; }
+    var errBox = document.getElementById('drinkCheckErr');
+    errBox.textContent = '';
+
+    var inputs = document.querySelectorAll('#drinkCheckTableBody .drink-check-input');
+    var counts = [];
+    inputs.forEach(function (el) {
+      if (el.value === '' || isNaN(Number(el.value))) return; // ข้ามช่องที่ไม่ได้กรอก (ไม่ได้นับรอบนี้)
+      counts.push({ code: el.getAttribute('data-code'), countedQty: Number(el.value) });
+    });
+    if (!counts.length) { errBox.textContent = t('errDrinkCheckEmpty'); return; }
+
+    var btn = document.getElementById('drinkCheckSubmitBtn');
+    btn.disabled = true; btn.textContent = t('btnSaving');
+
+    var payload = {
+      session: document.getElementById('drinkCheckSession').value,
+      note: document.getElementById('drinkCheckNote').value.trim(),
+      counts: counts,
+      user: state.user
+    };
+
+    apiCall('batchStockCount', payload)
+      .then(function (data) {
+        btn.disabled = false; btn.textContent = t('btnSaveCount');
+        // อัปเดต qty ในหน่วยความจำสำหรับทุกรายการที่เพิ่งบันทึกไป (ไม่ต้องโหลดข้อมูลทั้งหมดใหม่)
+        (data.results || []).forEach(function (r) {
+          var idx = state.items.findIndex(function (i) { return i.code === r.code; });
+          if (idx >= 0) state.items[idx].qty = r.after;
+        });
+        if (data.summary) {
+          state.summary.totalItems = data.summary.totalItems;
+          state.summary.lowStock = data.summary.lowStock;
+          state.summary.outOfStock = data.summary.outOfStock;
+        }
+        renderSummary();
+        renderDrinkCheckResult(data.results || []);
+        document.getElementById('drinkCheckNote').value = '';
+        showToast(t('toastDrinkCheckSaved'));
+        renderDrinkCheck();
+      })
+      .catch(function (err) {
+        btn.disabled = false; btn.textContent = t('btnSaveCount');
+        errBox.textContent = err.message || err;
+      });
+  }
+
+  function renderDrinkCheckResult(results) {
+    var wrap = document.getElementById('drinkCheckResultWrap');
+    var body = document.getElementById('drinkCheckResultBody');
+    if (!results.length) { wrap.style.display = 'none'; return; }
+    body.innerHTML = results.map(function (r) {
+      var missing = Math.round((r.before - r.after) * 1000) / 1000;
+      var missingText, missingColor;
+      if (missing > 0) { missingText = '-' + missing; missingColor = 'var(--critical)'; }
+      else if (missing < 0) { missingText = '+' + Math.abs(missing); missingColor = 'var(--good)'; }
+      else { missingText = '0'; missingColor = ''; }
+      return '<tr>' +
+        '<td>' + escapeHtml(r.name) + ' <span style="color:var(--muted)">(' + escapeHtml(r.code) + ')</span></td>' +
+        '<td class="nowrap-cell">' + r.before + '</td>' +
+        '<td class="nowrap-cell">' + r.after + '</td>' +
+        '<td class="nowrap-cell" style="color:' + missingColor + '">' + missingText + '</td>' +
+      '</tr>';
+    }).join('');
+    wrap.style.display = '';
     updateTableScrollHints();
   }
 
