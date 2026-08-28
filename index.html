@@ -2214,11 +2214,27 @@
   // (ไม่จำค่าไว้ข้ามเซสชัน ตั้งใจให้ต้องใส่รหัสใหม่ทุกครั้งที่เข้าเว็บมาใหม่ เพื่อความปลอดภัย)
   var priceEditState = { unlocked: false, editing: false, pin: '', pendingIntent: null };
 
+  // ดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์ใหม่ทุกครั้งที่เข้าแท็บนี้/กด "รีเฟรช" (แก้บั๊กเดิม: เมื่อก่อนปุ่มนี้แค่วาดตารางใหม่จากข้อมูลเก่าที่ค้างอยู่ในเบราว์เซอร์
+  // ไม่ได้ดึงข้อมูลใหม่จริง ทำให้ถ้าคนอื่น/เครื่องอื่นตัดสต๊อกไปแล้ว ยอด "ควรมี" ในหน้านี้จะยังค้างเป็นตัวเลขเก่าจนกว่าจะรีโหลดหน้าเว็บทั้งหมด)
   function loadDrinkCheck() {
     document.getElementById('drinkCheckErr').textContent = '';
     document.getElementById('drinkCheckResultWrap').style.display = 'none';
     document.getElementById('drinkCheckResultBody').innerHTML = '';
-    renderDrinkCheck();
+    var tbody = document.getElementById('drinkCheckTableBody');
+    tbody.innerHTML = '<tr><td colspan="6" class="loading-row"><span class="spinner"></span><span>' + t('loading') + '</span></td></tr>';
+    apiCall('getInitialData')
+      .then(function (data) {
+        state.items = data.items;
+        state.categories = data.categories;
+        state.requestedByOptions = data.requestedByOptions || [];
+        state.summary = data.summary;
+        renderSummary();
+        updateDrinkCheckTabVisibility();
+        renderDrinkCheck();
+      })
+      .catch(function (err) {
+        tbody.innerHTML = '<tr><td colspan="6" class="loading-row">' + (err.message || err) + '</td></tr>';
+      });
   }
 
   function renderDrinkCheck() {
@@ -2229,6 +2245,11 @@
     var preservedCounts = {};
     document.querySelectorAll('#drinkCheckTableBody .drink-check-input').forEach(function (el) {
       if (el.value !== '') preservedCounts[el.getAttribute('data-code')] = el.value;
+    });
+    // เก็บค่าราคาที่กำลังพิมพ์แก้ไว้ (ยังไม่ได้กด "บันทึกราคา") ไว้ด้วยเช่นกัน เผื่อโดน re-render ระหว่างแก้ไขราคาอยู่พอดี
+    var preservedPrices = {};
+    document.querySelectorAll('#drinkCheckTableBody .drink-price-input').forEach(function (el) {
+      preservedPrices[el.getAttribute('data-code')] = el.value;
     });
 
     var items = state.items.filter(function (it) { return it.status === 'ใช้งาน' && it.dailyCheck; });
@@ -2257,6 +2278,14 @@
       '</tr>';
     }).join('');
     updateTableScrollHints();
+
+    // คืนค่าราคาที่พิมพ์ค้างไว้ก่อน (ถ้ามี) — ต้องทำก่อนคืนค่าจำนวนนับ เพราะยอดรวมต้องคำนวณจากราคาที่พิมพ์ค้างไว้นี้ ไม่ใช่ราคาเดิมจากเซิร์ฟเวอร์
+    if (editing) {
+      Object.keys(preservedPrices).forEach(function (code) {
+        var priceInput = document.querySelector('.drink-price-input[data-code="' + code + '"]');
+        if (priceInput) priceInput.value = preservedPrices[code];
+      });
+    }
 
     // คืนค่าที่พิมพ์ไว้ก่อนหน้า แล้วคำนวณ "หายไป"/"ยอดรวม" ใหม่ให้ตรงกับค่าที่คืนมา
     Object.keys(preservedCounts).forEach(function (code) {
