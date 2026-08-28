@@ -1018,6 +1018,7 @@
       drinkCheckHistorySub: 'เลือกวันที่เพื่อดูผลการนับย้อนหลัง (เช้า/เย็น) ของวันนั้น',
       drinkCheckHistoryHint: 'เลือกวันที่แล้วกด "กรอง"',
       drinkCheckSessionCol: 'รอบ',
+      drinkCheckFinishPriceEditFirst: 'กด "บันทึกราคา" หรือ "ยกเลิก" ก่อน จึงจะบันทึกผลการนับสต๊อกได้',
       toastSavedEdit: 'บันทึกการแก้ไขแล้ว', toastAddedItem: 'เพิ่มสินค้าเรียบร้อย',
       toastTxSaved: 'บันทึกรายการเรียบร้อย', toastFreshSaved: 'บันทึกการรับของสดเรียบร้อย',
       toastItemDeleted: 'ลบสินค้าเรียบร้อยแล้ว',
@@ -1123,6 +1124,7 @@
       drinkCheckHistorySub: 'Pick a date to see that day\'s morning/evening count results',
       drinkCheckHistoryHint: 'Pick a date and click "Filter"',
       drinkCheckSessionCol: 'Session',
+      drinkCheckFinishPriceEditFirst: 'Click "Save Prices" or "Cancel" first before saving a stock count',
       toastSavedEdit: 'Changes saved', toastAddedItem: 'Item added successfully',
       toastTxSaved: 'Transaction saved', toastFreshSaved: 'Fresh item receipt saved',
       toastItemDeleted: 'Item deleted successfully',
@@ -2482,6 +2484,14 @@
     document.getElementById('drinkCheckPriceEditBtn').style.display = editing ? 'none' : '';
     document.getElementById('drinkCheckSavePriceBtn').style.display = editing ? '' : 'none';
     document.getElementById('drinkCheckCancelPriceBtn').style.display = editing ? '' : 'none';
+    // ระหว่างแก้ไขราคาอยู่ ปิดปุ่ม "บันทึกผลการนับ" ไว้ก่อน กันกดผิดปุ่ม (สับสนกับ "บันทึกราคา")
+    var submitBtn = document.getElementById('drinkCheckSubmitBtn');
+    if (submitBtn) {
+      submitBtn.disabled = editing;
+      submitBtn.style.opacity = editing ? '0.5' : '';
+      submitBtn.style.cursor = editing ? 'not-allowed' : '';
+      submitBtn.title = editing ? t('drinkCheckFinishPriceEditFirst') : '';
+    }
   }
 
   function cancelPriceEdit() {
