@@ -281,6 +281,13 @@
   .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
   .modal-actions .btn { flex: 1; }
   .err-text { color: var(--critical); font-size: 13px; margin-top: 8px; min-height: 16px; }
+  .pin-input-wrap { position: relative; }
+  .pin-input-wrap input { width: 100%; padding-right: 60px; }
+  .pin-toggle-btn {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--accent, #2563eb); font-size: 12px;
+    font-weight: 600; cursor: pointer; padding: 4px 6px;
+  }
   .qty-preview { font-size: 13px; color: var(--text-secondary); margin-top: -4px; margin-bottom: 12px; }
   .manage-link {
     font-size: 12px; color: var(--accent, #2563eb); cursor: pointer; margin-top: 6px; display: inline-block;
@@ -652,7 +659,10 @@
     <div class="sub" id="branchPinSub" data-i18n="branchPinSub">กรุณากรอกรหัสผ่านของสาขานี้ก่อนเข้าใช้งาน</div>
     <div class="field">
       <label data-i18n="branchPinLabel">รหัสผ่าน</label>
-      <input type="password" id="branchPinInput" inputmode="numeric" data-i18n-ph="branchPinPlaceholder" placeholder="กรอกรหัส" onkeydown="if(event.key==='Enter')submitBranchPin()">
+      <div class="pin-input-wrap">
+        <input type="password" id="branchPinInput" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-i18n-ph="branchPinPlaceholder" placeholder="กรอกรหัส" onkeydown="if(event.key==='Enter')submitBranchPin()">
+        <button type="button" class="pin-toggle-btn" onclick="togglePinVisibility('branchPinInput', this)" data-i18n="btnShow">แสดง</button>
+      </div>
     </div>
     <div class="err-text" id="branchPinErr"></div>
     <div class="modal-actions">
@@ -668,7 +678,10 @@
     <div class="sub" data-i18n="priceEditPinSub">กรุณากรอกรหัสก่อนแก้ไขราคาขายหรือจัดการรายการเช็คสต๊อกเครื่องดื่ม</div>
     <div class="field">
       <label data-i18n="priceEditPinLabel">รหัสยืนยัน</label>
-      <input type="password" id="priceEditPinInput" inputmode="numeric" data-i18n-ph="branchPinPlaceholder" placeholder="กรอกรหัส" onkeydown="if(event.key==='Enter')submitPriceEditPin()">
+      <div class="pin-input-wrap">
+        <input type="password" id="priceEditPinInput" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-i18n-ph="branchPinPlaceholder" placeholder="กรอกรหัส" onkeydown="if(event.key==='Enter')submitPriceEditPin()">
+        <button type="button" class="pin-toggle-btn" onclick="togglePinVisibility('priceEditPinInput', this)" data-i18n="btnShow">แสดง</button>
+      </div>
     </div>
     <div class="err-text" id="priceEditPinErr"></div>
     <div class="modal-actions">
@@ -888,8 +901,13 @@
       apiUrl: 'https://script.google.com/macros/s/AKfycbw7IcTUHg-UvjJqOdzJgNJEGnG17vLIK_b1frjDWkgNjqtz-xefU6Yc01ohAwdKGyei3g/exec'
     }
   };
-  var currentBranchKey = localStorage.getItem('stockapp_branch') || 'main';
+  // รองรับลิงก์ตรงเข้าสาขาที่ต้องการ เช่น ".../index.html?branch=lite" — สะดวกเวลาส่งลิงก์ให้คนที่ไม่เคยเปิดมาก่อน
+  // จะได้ไม่ต้องมาคอยเลือกสาขาเองจากเมนู (ปกติถ้าเปิดลิงก์เฉยๆ ไม่มี ?branch= จะเข้าสาขาแรก/สาขาที่เปิดค้างไว้ล่าสุดบนเครื่องนั้น)
+  var urlBranchParam = new URLSearchParams(location.search).get('branch');
+  var currentBranchKey = (urlBranchParam && BRANCHES[urlBranchParam]) ? urlBranchParam : (localStorage.getItem('stockapp_branch') || 'main');
   if (!BRANCHES[currentBranchKey]) currentBranchKey = Object.keys(BRANCHES)[0];
+  // จำสาขาที่เข้าผ่านลิงก์ตรงนี้ไว้ในเครื่องด้วย เผื่อครั้งต่อไปเปิดลิงก์เฉยๆ (ไม่มี ?branch=) จะได้เข้าสาขาเดิมที่เพิ่งใช้ล่าสุดอัตโนมัติ
+  if (urlBranchParam && BRANCHES[urlBranchParam]) localStorage.setItem('stockapp_branch', currentBranchKey);
   var API_BASE_URL = BRANCHES[currentBranchKey].apiUrl;
 
   // รายชื่อผู้เบิกของแต่ละสาขา ตอนนี้ดึงมาจากชีต "ผู้เบิก" ของสาขานั้นๆ ผ่าน getInitialData() แทนแล้ว
@@ -1011,6 +1029,7 @@
       priceEditPinTitle: 'ยืนยันรหัสแก้ไขราคา',
       priceEditPinSub: 'กรุณากรอกรหัสก่อนแก้ไขราคาขายหรือจัดการรายการเช็คสต๊อกเครื่องดื่ม',
       priceEditPinLabel: 'รหัสยืนยัน',
+      btnShow: 'แสดง', btnHide: 'ซ่อน',
       manageDrinkCheckTitle: 'จัดการรายการเช็คสต๊อกเครื่องดื่ม',
       manageDrinkCheckSub: 'ติ๊กถูกรายการที่ต้องการให้ขึ้นในหน้าเช็คสต๊อกเครื่องดื่ม (เพิ่ม/ลบได้เลย)',
       toastDrinkCheckListUpdated: 'ปรับปรุงรายการเรียบร้อย',
@@ -1117,6 +1136,7 @@
       priceEditPinTitle: 'Confirm Price-Edit Code',
       priceEditPinSub: 'Enter the code before editing prices or managing the Drink Stock Check list',
       priceEditPinLabel: 'Access Code',
+      btnShow: 'Show', btnHide: 'Hide',
       manageDrinkCheckTitle: 'Manage Drink Stock Check Items',
       manageDrinkCheckSub: 'Check the items that should appear on the Drink Stock Check page (add or remove)',
       toastDrinkCheckListUpdated: 'List updated successfully',
@@ -1316,9 +1336,21 @@
     });
   }
 
+  // สลับโชว์/ซ่อนรหัสที่พิมพ์อยู่ในช่องรหัสผ่าน (ช่วยให้เห็นว่าพิมพ์ถูกจริงไหมก่อนกดยืนยัน — มีประโยชน์มากตอนเปิดผ่านเบราว์เซอร์ในแอปแชท
+  // เช่น LINE/Facebook/WhatsApp ซึ่งบางทีคีย์บอร์ด/autofill ของแอปนั้นๆ อาจทำให้พิมพ์ผิดโดยไม่รู้ตัว)
+  function togglePinVisibility(inputId, btnEl) {
+    var input = document.getElementById(inputId);
+    var showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    btnEl.textContent = showing ? t('btnShow') : t('btnHide');
+  }
+
   function openBranchPinModal() {
     document.getElementById('branchPinInput').value = '';
+    document.getElementById('branchPinInput').type = 'password';
     document.getElementById('branchPinErr').textContent = '';
+    var toggleBtn = document.querySelector('#branchPinOverlay .pin-toggle-btn');
+    if (toggleBtn) toggleBtn.textContent = t('btnShow');
     document.getElementById('branchPinOverlay').classList.add('show');
     setTimeout(function () { document.getElementById('branchPinInput').focus(); }, 50);
   }
@@ -2464,7 +2496,10 @@
     }
     priceEditState.pendingIntent = intent;
     document.getElementById('priceEditPinInput').value = '';
+    document.getElementById('priceEditPinInput').type = 'password';
     document.getElementById('priceEditPinErr').textContent = '';
+    var toggleBtn = document.querySelector('#priceEditPinOverlay .pin-toggle-btn');
+    if (toggleBtn) toggleBtn.textContent = t('btnShow');
     document.getElementById('priceEditPinOverlay').classList.add('show');
     setTimeout(function () { document.getElementById('priceEditPinInput').focus(); }, 50);
   }
