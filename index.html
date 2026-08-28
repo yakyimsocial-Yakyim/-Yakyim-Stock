@@ -265,6 +265,12 @@
   .field { margin-bottom: 12px; }
   .field label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 5px; }
   .hint-text { font-size: 12px; color: var(--text-secondary); margin-top: 4px; min-height: 15px; }
+  .filter-date-field { display: flex; flex-direction: column; gap: 3px; flex: 1 1 160px; min-width: 0; }
+  .filter-date-field span { font-size: 11px; color: var(--text-secondary); }
+  .drink-price-input { width: 76px; }
+  .drink-check-grand-total { text-align: right; font-size: 15px; font-weight: 700; margin: 4px 0 14px; }
+  .drink-check-grand-total span.amount { color: var(--critical); }
+  .drink-check-section-title { font-weight: 600; font-size: 15px; margin: 26px 0 2px; padding-top: 18px; border-top: 1px solid var(--border); }
   .checkbox-field label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 400; color: var(--text-primary); cursor: pointer; }
   .checkbox-field input[type="checkbox"] { width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; }
   .field input, .field select, .field textarea {
@@ -552,12 +558,22 @@
   <div id="viewDrinkCheck" style="display:none;">
     <div class="sub" data-i18n="drinkCheckSub">เช็คยอดสินค้าที่ขายเองไม่มีพนักงานเฝ้า (เช่น เครื่องดื่ม) เทียบกับยอดในระบบ เพื่อดูว่าหายไปเท่าไรก่อนเรียกเก็บเงิน</div>
     <div class="filter-bar">
+      <div class="filter-date-field">
+        <span data-i18n="drinkCheckRecordDateLabel">บันทึกสำหรับวันที่</span>
+        <input type="date" id="drinkCheckDate">
+      </div>
       <select id="drinkCheckSession" autocomplete="off">
         <option value="เช้า" data-i18n="sessionMorning">เช้า</option>
         <option value="เย็น" data-i18n="sessionEvening">เย็น</option>
       </select>
       <input type="text" id="drinkCheckNote" data-i18n-ph="drinkCheckNotePlaceholder" placeholder="หมายเหตุ (ถ้ามี)">
       <button class="btn btn-secondary" onclick="loadDrinkCheck()" data-i18n="btnRefresh">รีเฟรช</button>
+    </div>
+    <div class="filter-bar" style="margin-top:-4px;">
+      <button class="btn btn-secondary" id="drinkCheckPriceEditBtn" onclick="requestPriceEditUnlock('priceEdit')" data-i18n="btnEditPrices">แก้ไขราคา</button>
+      <button class="btn btn-primary" id="drinkCheckSavePriceBtn" style="display:none;" onclick="saveDrinkCheckPrices()" data-i18n="btnSavePrices">บันทึกราคา</button>
+      <button class="btn btn-secondary" id="drinkCheckCancelPriceBtn" style="display:none;" onclick="cancelPriceEdit()" data-i18n="btnCancel">ยกเลิก</button>
+      <button class="btn btn-secondary" onclick="requestPriceEditUnlock('manageItems')" data-i18n="btnManageDrinkItems">จัดการรายการ</button>
     </div>
     <div class="log-table-wrap">
       <table class="log-table" id="drinkCheckTable">
@@ -567,12 +583,18 @@
             <th data-i18n="drinkCheckExpectedQty">ยอดที่ควรมี</th>
             <th data-i18n="drinkCheckCountedQty">นับได้จริง</th>
             <th data-i18n="drinkCheckMissingQty">หายไป</th>
+            <th data-i18n="drinkCheckPrice">ราคาขาย</th>
+            <th data-i18n="drinkCheckLineTotal">ยอดรวม</th>
           </tr>
         </thead>
         <tbody id="drinkCheckTableBody">
-          <tr><td colspan="4" class="loading-row"><span class="spinner"></span><span data-i18n="loading">กำลังโหลด...</span></td></tr>
+          <tr><td colspan="6" class="loading-row"><span class="spinner"></span><span data-i18n="loading">กำลังโหลด...</span></td></tr>
         </tbody>
       </table>
+    </div>
+    <div class="drink-check-grand-total">
+      <span data-i18n="drinkCheckGrandTotalLabel">ยอดรวมที่ต้องเรียกเก็บ:</span>
+      <span class="amount" id="drinkCheckGrandTotal">RM 0.00</span>
     </div>
     <div class="err-text" id="drinkCheckErr"></div>
     <div class="modal-actions" style="margin-top:16px; justify-content:flex-start;">
@@ -586,9 +608,36 @@
             <th data-i18n="drinkCheckExpectedQty">ยอดที่ควรมี</th>
             <th data-i18n="drinkCheckCountedQty">นับได้จริง</th>
             <th data-i18n="drinkCheckMissingQty">หายไป</th>
+            <th data-i18n="drinkCheckPrice">ราคาขาย</th>
+            <th data-i18n="drinkCheckLineTotal">ยอดรวม</th>
           </tr>
         </thead>
         <tbody id="drinkCheckResultBody"></tbody>
+      </table>
+    </div>
+
+    <div class="drink-check-section-title" data-i18n="drinkCheckHistoryTitle">ประวัติการนับสต๊อก</div>
+    <div class="sub" data-i18n="drinkCheckHistorySub">เลือกวันที่เพื่อดูผลการนับย้อนหลัง (เช้า/เย็น) ของวันนั้น</div>
+    <div class="filter-bar">
+      <input type="date" id="drinkCheckHistoryDate">
+      <button class="btn btn-secondary" onclick="loadDrinkCheckHistory()" data-i18n="btnFilter">กรอง</button>
+    </div>
+    <div class="log-table-wrap">
+      <table class="log-table" id="drinkCheckHistoryTable">
+        <thead>
+          <tr>
+            <th data-i18n="colTime">เวลา</th>
+            <th data-i18n="drinkCheckSessionCol">รอบ</th>
+            <th data-i18n="colItem">สินค้า</th>
+            <th data-i18n="colBefore">ก่อน</th>
+            <th data-i18n="colAfter">หลัง</th>
+            <th data-i18n="drinkCheckMissingQty">หายไป</th>
+            <th data-i18n="colNote">หมายเหตุ</th>
+          </tr>
+        </thead>
+        <tbody id="drinkCheckHistoryBody">
+          <tr><td colspan="7" class="loading-row" data-i18n="drinkCheckHistoryHint">เลือกวันที่แล้วกด "กรอง"</td></tr>
+        </tbody>
       </table>
     </div>
   </div>
@@ -608,6 +657,23 @@
     <div class="err-text" id="branchPinErr"></div>
     <div class="modal-actions">
       <button class="btn btn-primary btn-block" id="branchPinSubmitBtn" onclick="submitBranchPin()" data-i18n="btnConfirm">ยืนยัน</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: ยืนยันรหัสก่อนแก้ไขราคาขาย / จัดการรายการเช็คสต๊อกเครื่องดื่ม ===== -->
+<div class="overlay" id="priceEditPinOverlay">
+  <div class="modal">
+    <h2 data-i18n="priceEditPinTitle">ยืนยันรหัสแก้ไขราคา</h2>
+    <div class="sub" data-i18n="priceEditPinSub">กรุณากรอกรหัสก่อนแก้ไขราคาขายหรือจัดการรายการเช็คสต๊อกเครื่องดื่ม</div>
+    <div class="field">
+      <label data-i18n="priceEditPinLabel">รหัสยืนยัน</label>
+      <input type="password" id="priceEditPinInput" inputmode="numeric" data-i18n-ph="branchPinPlaceholder" placeholder="กรอกรหัส" onkeydown="if(event.key==='Enter')submitPriceEditPin()">
+    </div>
+    <div class="err-text" id="priceEditPinErr"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('priceEditPinOverlay')" data-i18n="btnCancel">ยกเลิก</button>
+      <button class="btn btn-primary" id="priceEditPinSubmitBtn" onclick="submitPriceEditPin()" data-i18n="btnConfirm">ยืนยัน</button>
     </div>
   </div>
 </div>
@@ -724,6 +790,23 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeModal('manageRequestersOverlay')" data-i18n="btnClose">ปิด</button>
       <button class="btn btn-primary" id="addRequesterBtn" onclick="submitAddRequester()" data-i18n="btnAdd">เพิ่มชื่อ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: จัดการรายการเช็คสต๊อกเครื่องดื่ม (เพิ่ม/ลบรายการที่ต้องตรวจนับเช้า-เย็น) ===== -->
+<div class="overlay" id="manageDrinkCheckOverlay">
+  <div class="modal">
+    <h2 data-i18n="manageDrinkCheckTitle">จัดการรายการเช็คสต๊อกเครื่องดื่ม</h2>
+    <div class="sub" data-i18n="manageDrinkCheckSub">ติ๊กถูกรายการที่ต้องการให้ขึ้นในหน้าเช็คสต๊อกเครื่องดื่ม (เพิ่ม/ลบได้เลย)</div>
+    <div class="field">
+      <input type="text" id="manageDrinkCheckSearch" data-i18n-ph="histSearchPlaceholder" placeholder="ค้นหาสินค้า..." oninput="renderManageDrinkCheckList()">
+    </div>
+    <div id="manageDrinkCheckList" class="requester-list" style="max-height:320px;"></div>
+    <div class="err-text" id="manageDrinkCheckErr"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('manageDrinkCheckOverlay')" data-i18n="btnClose">ปิด</button>
+      <button class="btn btn-primary" id="manageDrinkCheckSaveBtn" onclick="submitManageDrinkCheck()" data-i18n="btnSave">บันทึก</button>
     </div>
   </div>
 </div>
@@ -919,6 +1002,22 @@
       btnSaveCount: 'บันทึกผลการนับ', btnRefresh: 'รีเฟรช',
       errDrinkCheckEmpty: 'กรุณากรอกจำนวนที่นับได้อย่างน้อย 1 รายการ',
       toastDrinkCheckSaved: 'บันทึกผลการนับเรียบร้อย',
+      drinkCheckRecordDateLabel: 'บันทึกสำหรับวันที่',
+      drinkCheckPrice: 'ราคาขาย', drinkCheckLineTotal: 'ยอดรวม',
+      drinkCheckGrandTotalLabel: 'ยอดรวมที่ต้องเรียกเก็บ:',
+      btnEditPrices: 'แก้ไขราคา', btnSavePrices: 'บันทึกราคา', btnManageDrinkItems: 'จัดการรายการ',
+      errDrinkCheckPriceEmpty: 'กรุณากรอกราคาให้ถูกต้องอย่างน้อย 1 รายการ',
+      toastPricesSaved: 'บันทึกราคาเรียบร้อย',
+      priceEditPinTitle: 'ยืนยันรหัสแก้ไขราคา',
+      priceEditPinSub: 'กรุณากรอกรหัสก่อนแก้ไขราคาขายหรือจัดการรายการเช็คสต๊อกเครื่องดื่ม',
+      priceEditPinLabel: 'รหัสยืนยัน',
+      manageDrinkCheckTitle: 'จัดการรายการเช็คสต๊อกเครื่องดื่ม',
+      manageDrinkCheckSub: 'ติ๊กถูกรายการที่ต้องการให้ขึ้นในหน้าเช็คสต๊อกเครื่องดื่ม (เพิ่ม/ลบได้เลย)',
+      toastDrinkCheckListUpdated: 'ปรับปรุงรายการเรียบร้อย',
+      drinkCheckHistoryTitle: 'ประวัติการนับสต๊อก',
+      drinkCheckHistorySub: 'เลือกวันที่เพื่อดูผลการนับย้อนหลัง (เช้า/เย็น) ของวันนั้น',
+      drinkCheckHistoryHint: 'เลือกวันที่แล้วกด "กรอง"',
+      drinkCheckSessionCol: 'รอบ',
       toastSavedEdit: 'บันทึกการแก้ไขแล้ว', toastAddedItem: 'เพิ่มสินค้าเรียบร้อย',
       toastTxSaved: 'บันทึกรายการเรียบร้อย', toastFreshSaved: 'บันทึกการรับของสดเรียบร้อย',
       toastItemDeleted: 'ลบสินค้าเรียบร้อยแล้ว',
@@ -1008,6 +1107,22 @@
       btnSaveCount: 'Save Count', btnRefresh: 'Refresh',
       errDrinkCheckEmpty: 'Please enter a counted quantity for at least one item',
       toastDrinkCheckSaved: 'Count saved successfully',
+      drinkCheckRecordDateLabel: 'Record for date',
+      drinkCheckPrice: 'Sell Price', drinkCheckLineTotal: 'Total',
+      drinkCheckGrandTotalLabel: 'Total to charge:',
+      btnEditPrices: 'Edit Prices', btnSavePrices: 'Save Prices', btnManageDrinkItems: 'Manage Items',
+      errDrinkCheckPriceEmpty: 'Please enter a valid price for at least one item',
+      toastPricesSaved: 'Prices saved successfully',
+      priceEditPinTitle: 'Confirm Price-Edit Code',
+      priceEditPinSub: 'Enter the code before editing prices or managing the Drink Stock Check list',
+      priceEditPinLabel: 'Access Code',
+      manageDrinkCheckTitle: 'Manage Drink Stock Check Items',
+      manageDrinkCheckSub: 'Check the items that should appear on the Drink Stock Check page (add or remove)',
+      toastDrinkCheckListUpdated: 'List updated successfully',
+      drinkCheckHistoryTitle: 'Count History',
+      drinkCheckHistorySub: 'Pick a date to see that day\'s morning/evening count results',
+      drinkCheckHistoryHint: 'Pick a date and click "Filter"',
+      drinkCheckSessionCol: 'Session',
       toastSavedEdit: 'Changes saved', toastAddedItem: 'Item added successfully',
       toastTxSaved: 'Transaction saved', toastFreshSaved: 'Fresh item receipt saved',
       toastItemDeleted: 'Item deleted successfully',
@@ -1298,7 +1413,13 @@
       loadDailyOut();
     }
     if (tab === 'yield') loadYieldReport();
-    if (tab === 'drinkCheck') loadDrinkCheck();
+    if (tab === 'drinkCheck') {
+      var dcDateEl = document.getElementById('drinkCheckDate');
+      if (dcDateEl && !dcDateEl.value) dcDateEl.value = todayDateStr_();
+      var dcHistDateEl = document.getElementById('drinkCheckHistoryDate');
+      if (dcHistDateEl && !dcHistDateEl.value) dcHistDateEl.value = todayDateStr_();
+      loadDrinkCheck();
+    }
     setTimeout(updateTableScrollHints, 50); // เผื่อกรณีตารางเพิ่งถูกโชว์ (display:none -> block) ต้องคำนวณความกว้างใหม่
   }
 
@@ -2087,6 +2208,10 @@
   // ---------------- Drink Check (เช็คสต๊อกเครื่องดื่ม 2 รอบ/วัน) ----------------
   // สำหรับสินค้าที่ตั้งค่า "ตรวจนับเช้า-เย็น" ไว้ (เช่น เครื่องดื่มขายเองไม่มีพนักงานเฝ้า)
   // แสดงยอดที่ควรมีในระบบเทียบกับที่นับได้จริง คำนวณ "หายไปเท่าไร" ให้ทันทีตอนพิมพ์ ก่อนกดบันทึกจริง
+  // priceEditState: สถานะปลดล็อกการแก้ไข "ราคาขาย" / "จัดการรายการ" — ต้องยืนยันรหัสก่อนทุกครั้งที่เปิดหน้าเว็บใหม่
+  // (ไม่จำค่าไว้ข้ามเซสชัน ตั้งใจให้ต้องใส่รหัสใหม่ทุกครั้งที่เข้าเว็บมาใหม่ เพื่อความปลอดภัย)
+  var priceEditState = { unlocked: false, editing: false, pin: '', pendingIntent: null };
+
   function loadDrinkCheck() {
     document.getElementById('drinkCheckErr').textContent = '';
     document.getElementById('drinkCheckResultWrap').style.display = 'none';
@@ -2096,12 +2221,27 @@
 
   function renderDrinkCheck() {
     var tbody = document.getElementById('drinkCheckTableBody');
+
+    // เก็บค่าที่พิมพ์ในช่อง "นับได้จริง" ไว้ก่อน เผื่อกำลังพิมพ์ค้างอยู่แล้วตารางถูก re-render
+    // (เช่น ตอนกดปุ่ม "แก้ไขราคา"/"บันทึกราคา"/"จัดการรายการ") จะได้ไม่หายไปโดยไม่ตั้งใจ
+    var preservedCounts = {};
+    document.querySelectorAll('#drinkCheckTableBody .drink-check-input').forEach(function (el) {
+      if (el.value !== '') preservedCounts[el.getAttribute('data-code')] = el.value;
+    });
+
     var items = state.items.filter(function (it) { return it.status === 'ใช้งาน' && it.dailyCheck; });
     if (!items.length) {
-      tbody.innerHTML = '<tr><td colspan="4" class="loading-row">' + t('emptyState') + '</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="loading-row">' + t('emptyState') + '</td></tr>';
+      updateDrinkCheckGrandTotal();
       return;
     }
+    var editing = priceEditState.editing;
     tbody.innerHTML = items.map(function (it) {
+      var price = Number(it.sellPrice) || 0;
+      var priceCell = editing
+        ? ('<input type="number" min="0" step="0.01" class="drink-price-input" data-code="' + escapeAttr(it.code) +
+           '" value="' + price + '" oninput="onDrinkPriceInput(this)">')
+        : ('RM ' + price.toFixed(2));
       return '<tr>' +
         '<td>' + escapeHtml(it.name) + ' <span style="color:var(--muted)">(' + escapeHtml(it.code) + ')</span></td>' +
         '<td class="nowrap-cell">' + it.qty + ' ' + escapeHtml(it.unit || '') + '</td>' +
@@ -2110,18 +2250,46 @@
             'data-code="' + escapeAttr(it.code) + '" data-expected="' + it.qty + '" oninput="updateDrinkCheckRow(this)">' +
         '</td>' +
         '<td class="nowrap-cell" id="drinkCheckMissing_' + escapeAttr(it.code) + '">–</td>' +
+        '<td class="nowrap-cell" id="drinkCheckPriceCell_' + escapeAttr(it.code) + '">' + priceCell + '</td>' +
+        '<td class="nowrap-cell" id="drinkCheckTotal_' + escapeAttr(it.code) + '">–</td>' +
       '</tr>';
     }).join('');
     updateTableScrollHints();
+
+    // คืนค่าที่พิมพ์ไว้ก่อนหน้า แล้วคำนวณ "หายไป"/"ยอดรวม" ใหม่ให้ตรงกับค่าที่คืนมา
+    Object.keys(preservedCounts).forEach(function (code) {
+      var input = document.querySelector('.drink-check-input[data-code="' + code + '"]');
+      if (input) {
+        input.value = preservedCounts[code];
+        updateDrinkCheckRow(input);
+      }
+    });
+    updateDrinkCheckGrandTotal();
+  }
+
+  // ราคาที่ใช้คำนวณ "ยอดรวม" ของแถวนั้นๆ ณ ขณะนี้ — ถ้ากำลังแก้ไขราคาอยู่ ใช้ค่าที่พิมพ์ในช่องราคาแทนค่าที่บันทึกไว้แล้ว
+  function currentDrinkCheckPrice_(code) {
+    if (priceEditState.editing) {
+      var input = document.querySelector('.drink-price-input[data-code="' + code + '"]');
+      if (input) {
+        var v = Number(input.value);
+        if (!isNaN(v)) return v;
+      }
+    }
+    var it = state.items.filter(function (i) { return i.code === code; })[0];
+    return it ? (Number(it.sellPrice) || 0) : 0;
   }
 
   function updateDrinkCheckRow(inputEl) {
     var code = inputEl.getAttribute('data-code');
     var expected = Number(inputEl.getAttribute('data-expected'));
     var cell = document.getElementById('drinkCheckMissing_' + code);
+    var totalCell = document.getElementById('drinkCheckTotal_' + code);
     if (inputEl.value === '' || isNaN(Number(inputEl.value))) {
       cell.textContent = '–';
       cell.style.color = '';
+      if (totalCell) { totalCell.textContent = '–'; totalCell.style.color = ''; }
+      updateDrinkCheckGrandTotal();
       return;
     }
     var counted = Number(inputEl.value);
@@ -2136,6 +2304,41 @@
       cell.textContent = '0';
       cell.style.color = '';
     }
+    if (totalCell) {
+      if (missing > 0) {
+        var price = currentDrinkCheckPrice_(code);
+        var totalVal = Math.round(missing * price * 100) / 100;
+        totalCell.textContent = 'RM ' + totalVal.toFixed(2);
+        totalCell.style.color = 'var(--critical)';
+      } else {
+        totalCell.textContent = '–';
+        totalCell.style.color = '';
+      }
+    }
+    updateDrinkCheckGrandTotal();
+  }
+
+  // เวลาแก้ไขราคาในช่องระหว่างโหมดแก้ไข ให้คำนวณ "ยอดรวม" ของแถวนั้นใหม่ทันที (ถ้ามีการกรอกจำนวนนับไว้แล้ว)
+  function onDrinkPriceInput(inputEl) {
+    var code = inputEl.getAttribute('data-code');
+    var countInput = document.querySelector('.drink-check-input[data-code="' + code + '"]');
+    if (countInput && countInput.value !== '') {
+      updateDrinkCheckRow(countInput);
+    } else {
+      updateDrinkCheckGrandTotal();
+    }
+  }
+
+  // รวมยอด "มูลค่าที่หายไป" ของทุกแถวที่กำลังแสดงอยู่ (อ่านจากคอลัมน์ยอดรวมที่คำนวณไว้แล้วในแต่ละแถว)
+  function updateDrinkCheckGrandTotal() {
+    var cells = document.querySelectorAll('#drinkCheckTableBody tr td:nth-child(6)');
+    var sum = 0;
+    cells.forEach(function (c) {
+      var v = Number(String(c.textContent).replace('RM', '').trim());
+      if (!isNaN(v)) sum += v;
+    });
+    var grandEl = document.getElementById('drinkCheckGrandTotal');
+    if (grandEl) grandEl.textContent = 'RM ' + (Math.round(sum * 100) / 100).toFixed(2);
   }
 
   function submitDrinkCheck() {
@@ -2154,11 +2357,15 @@
     var btn = document.getElementById('drinkCheckSubmitBtn');
     btn.disabled = true; btn.textContent = t('btnSaving');
 
+    var dateEl = document.getElementById('drinkCheckDate');
+    var countDate = (dateEl && dateEl.value) ? dateEl.value : todayDateStr_();
+
     var payload = {
       session: document.getElementById('drinkCheckSession').value,
       note: document.getElementById('drinkCheckNote').value.trim(),
       counts: counts,
-      user: state.user
+      user: state.user,
+      countDate: countDate
     };
 
     apiCall('batchStockCount', payload)
@@ -2179,6 +2386,9 @@
         document.getElementById('drinkCheckNote').value = '';
         showToast(t('toastDrinkCheckSaved'));
         renderDrinkCheck();
+        // ถ้าหน้าประวัติกำลังเปิดดูวันเดียวกับที่เพิ่งบันทึกอยู่ รีเฟรชให้เห็นผลทันที
+        var histDateEl = document.getElementById('drinkCheckHistoryDate');
+        if (histDateEl && histDateEl.value === (data.recordDate || countDate)) loadDrinkCheckHistory();
       })
       .catch(function (err) {
         btn.disabled = false; btn.textContent = t('btnSaveCount');
@@ -2196,14 +2406,246 @@
       if (missing > 0) { missingText = '-' + missing; missingColor = 'var(--critical)'; }
       else if (missing < 0) { missingText = '+' + Math.abs(missing); missingColor = 'var(--good)'; }
       else { missingText = '0'; missingColor = ''; }
+      var price = currentDrinkCheckPrice_(r.code);
+      var totalText = '–', totalColor = '';
+      if (missing > 0) {
+        totalText = 'RM ' + (Math.round(missing * price * 100) / 100).toFixed(2);
+        totalColor = 'var(--critical)';
+      }
       return '<tr>' +
         '<td>' + escapeHtml(r.name) + ' <span style="color:var(--muted)">(' + escapeHtml(r.code) + ')</span></td>' +
         '<td class="nowrap-cell">' + r.before + '</td>' +
         '<td class="nowrap-cell">' + r.after + '</td>' +
         '<td class="nowrap-cell" style="color:' + missingColor + '">' + missingText + '</td>' +
+        '<td class="nowrap-cell">RM ' + price.toFixed(2) + '</td>' +
+        '<td class="nowrap-cell" style="color:' + totalColor + '">' + totalText + '</td>' +
       '</tr>';
     }).join('');
     wrap.style.display = '';
+    updateTableScrollHints();
+  }
+
+  // ---------------- แก้ไขราคาขาย / จัดการรายการเช็คสต๊อกเครื่องดื่ม (ต้องยืนยันรหัสก่อน) ----------------
+  function requestPriceEditUnlock(intent) {
+    if (priceEditState.unlocked) {
+      runPriceEditIntent_(intent);
+      return;
+    }
+    priceEditState.pendingIntent = intent;
+    document.getElementById('priceEditPinInput').value = '';
+    document.getElementById('priceEditPinErr').textContent = '';
+    document.getElementById('priceEditPinOverlay').classList.add('show');
+    setTimeout(function () { document.getElementById('priceEditPinInput').focus(); }, 50);
+  }
+
+  function submitPriceEditPin() {
+    var pin = document.getElementById('priceEditPinInput').value.trim();
+    var errBox = document.getElementById('priceEditPinErr');
+    if (!pin) { errBox.textContent = t('errPinRequired'); return; }
+
+    var btn = document.getElementById('priceEditPinSubmitBtn');
+    btn.disabled = true; btn.textContent = t('btnChecking');
+    errBox.textContent = '';
+
+    apiCall('checkPriceEditPin', { pin: pin })
+      .then(function (data) {
+        btn.disabled = false; btn.textContent = t('btnConfirm');
+        if (data && data.valid) {
+          priceEditState.unlocked = true;
+          priceEditState.pin = pin; // เก็บไว้ส่งไปยืนยันซ้ำฝั่งเซิร์ฟเวอร์ตอนบันทึกจริง (batchUpdatePrices / batchSetDailyCheck)
+          closeModal('priceEditPinOverlay');
+          var intent = priceEditState.pendingIntent;
+          priceEditState.pendingIntent = null;
+          runPriceEditIntent_(intent);
+        } else {
+          errBox.textContent = t('errPinIncorrect');
+        }
+      })
+      .catch(function (err) {
+        btn.disabled = false; btn.textContent = t('btnConfirm');
+        errBox.textContent = err.message || err;
+      });
+  }
+
+  function runPriceEditIntent_(intent) {
+    if (intent === 'manageItems') {
+      openManageDrinkCheckItems();
+    } else {
+      priceEditState.editing = true;
+      updatePriceEditButtons();
+      renderDrinkCheck();
+    }
+  }
+
+  function updatePriceEditButtons() {
+    var editing = priceEditState.editing;
+    document.getElementById('drinkCheckPriceEditBtn').style.display = editing ? 'none' : '';
+    document.getElementById('drinkCheckSavePriceBtn').style.display = editing ? '' : 'none';
+    document.getElementById('drinkCheckCancelPriceBtn').style.display = editing ? '' : 'none';
+  }
+
+  function cancelPriceEdit() {
+    priceEditState.editing = false;
+    updatePriceEditButtons();
+    renderDrinkCheck();
+  }
+
+  function saveDrinkCheckPrices() {
+    var inputs = document.querySelectorAll('#drinkCheckTableBody .drink-price-input');
+    var prices = [];
+    inputs.forEach(function (el) {
+      var v = Number(el.value);
+      if (isNaN(v) || v < 0) return;
+      prices.push({ code: el.getAttribute('data-code'), price: v });
+    });
+    if (!prices.length) { showToast(t('errDrinkCheckPriceEmpty'), true); return; }
+
+    var btn = document.getElementById('drinkCheckSavePriceBtn');
+    btn.disabled = true; btn.textContent = t('btnSaving');
+
+    apiCall('batchUpdatePrices', { prices: prices, user: state.user, pin: priceEditState.pin })
+      .then(function (data) {
+        btn.disabled = false; btn.textContent = t('btnSavePrices');
+        (data.results || []).forEach(function (r) {
+          var idx = state.items.findIndex(function (i) { return i.code === r.code; });
+          if (idx >= 0) state.items[idx].sellPrice = r.price;
+        });
+        priceEditState.editing = false;
+        updatePriceEditButtons();
+        renderDrinkCheck();
+        showToast(t('toastPricesSaved'));
+      })
+      .catch(function (err) {
+        btn.disabled = false; btn.textContent = t('btnSavePrices');
+        showToast(err.message || err, true);
+      });
+  }
+
+  // ---------------- จัดการรายการเช็คสต๊อกเครื่องดื่ม (เพิ่ม/ลบรายการที่ต้องตรวจนับเช้า-เย็น) ----------------
+  var manageDrinkCheckPending = {};
+
+  function openManageDrinkCheckItems() {
+    manageDrinkCheckPending = {};
+    state.items.forEach(function (it) { manageDrinkCheckPending[it.code] = !!it.dailyCheck; });
+    document.getElementById('manageDrinkCheckSearch').value = '';
+    document.getElementById('manageDrinkCheckErr').textContent = '';
+    renderManageDrinkCheckList();
+    document.getElementById('manageDrinkCheckOverlay').classList.add('show');
+  }
+
+  function renderManageDrinkCheckList() {
+    var q = document.getElementById('manageDrinkCheckSearch').value.trim().toLowerCase();
+    var box = document.getElementById('manageDrinkCheckList');
+    var items = state.items
+      .filter(function (it) { return it.status === 'ใช้งาน'; })
+      .filter(function (it) {
+        if (!q) return true;
+        return (it.name || '').toLowerCase().indexOf(q) !== -1 || (it.code || '').toLowerCase().indexOf(q) !== -1;
+      })
+      .sort(function (a, b) {
+        var aChecked = manageDrinkCheckPending[a.code] ? 1 : 0;
+        var bChecked = manageDrinkCheckPending[b.code] ? 1 : 0;
+        if (aChecked !== bChecked) return bChecked - aChecked;
+        return String(a.name).localeCompare(String(b.name));
+      });
+    if (!items.length) {
+      box.innerHTML = '<div class="loading-row">' + t('emptyState') + '</div>';
+      return;
+    }
+    box.innerHTML = items.map(function (it) {
+      var checked = manageDrinkCheckPending[it.code] ? 'checked' : '';
+      return '<div class="requester-row">' +
+        '<label style="display:flex; align-items:center; gap:8px; cursor:pointer; width:100%;">' +
+          '<input type="checkbox" data-code="' + escapeAttr(it.code) + '" ' + checked + ' onchange="onManageDrinkCheckToggle(this)">' +
+          '<span>' + escapeHtml(it.name) + ' <span style="color:var(--muted)">(' + escapeHtml(it.code) + ')</span></span>' +
+        '</label>' +
+      '</div>';
+    }).join('');
+  }
+
+  function onManageDrinkCheckToggle(checkboxEl) {
+    manageDrinkCheckPending[checkboxEl.getAttribute('data-code')] = checkboxEl.checked;
+  }
+
+  function submitManageDrinkCheck() {
+    var changes = [];
+    state.items.forEach(function (it) {
+      var desired = !!manageDrinkCheckPending[it.code];
+      if (desired !== !!it.dailyCheck) changes.push({ code: it.code, enabled: desired });
+    });
+    if (!changes.length) { closeModal('manageDrinkCheckOverlay'); return; }
+
+    var btn = document.getElementById('manageDrinkCheckSaveBtn');
+    btn.disabled = true; btn.textContent = t('btnSaving');
+
+    apiCall('batchSetDailyCheck', { changes: changes, user: state.user, pin: priceEditState.pin })
+      .then(function (data) {
+        btn.disabled = false; btn.textContent = t('btnSave');
+        if (data.items) state.items = data.items;
+        updateDrinkCheckTabVisibility();
+        renderDrinkCheck();
+        closeModal('manageDrinkCheckOverlay');
+        showToast(t('toastDrinkCheckListUpdated'));
+      })
+      .catch(function (err) {
+        btn.disabled = false; btn.textContent = t('btnSave');
+        document.getElementById('manageDrinkCheckErr').textContent = err.message || err;
+      });
+  }
+
+  // ---------------- ประวัติการนับสต๊อกเครื่องดื่ม (ฟีเจอร์เลือกวัน — ดูผลย้อนหลังตามวันที่) ----------------
+  // ใช้ getLogs API ตัวเดิม (มี dateFrom/dateTo ให้กรองในเซิร์ฟเวอร์แล้ว ไม่ต้องเพิ่ม action ใหม่)
+  // จากนั้นกรองเฉพาะรายการ "นับสต๊อก (ปรับยอด)" ของสินค้าที่ตั้งค่า "ตรวจนับเช้า-เย็น" ไว้ในฝั่งหน้าเว็บ
+  function loadDrinkCheckHistory() {
+    var dateEl = document.getElementById('drinkCheckHistoryDate');
+    var date = dateEl.value || todayDateStr_();
+    dateEl.value = date;
+    var tbody = document.getElementById('drinkCheckHistoryBody');
+    tbody.innerHTML = '<tr><td colspan="7" class="loading-row"><span class="spinner"></span>' + t('loading') + '</td></tr>';
+
+    apiCall('getLogs', { dateFrom: date, dateTo: date })
+      .then(function (logs) {
+        var drinkCodes = {};
+        state.items.forEach(function (it) { if (it.dailyCheck) drinkCodes[it.code] = true; });
+        var rows = (logs || [])
+          .filter(function (l) { return l.type === 'นับสต๊อก (ปรับยอด)' && drinkCodes[l.code]; })
+          .reverse(); // getLogs คืนค่าล่าสุดก่อน (desc) — กลับลำดับให้เรียงตามเวลาจากเช้าไปเย็น
+        renderDrinkCheckHistory(rows);
+      })
+      .catch(function (err) {
+        tbody.innerHTML = '<tr><td colspan="7" class="loading-row">' + (err.message || err) + '</td></tr>';
+      });
+  }
+
+  function renderDrinkCheckHistory(rows) {
+    var tbody = document.getElementById('drinkCheckHistoryBody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="loading-row">' + t('noHistory') + '</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function (l) {
+      var sessionText = '';
+      var note = l.note || '';
+      var m = note.match(/^รอบ:\s*(เช้า|เย็น)(?:\s+—\s+([\s\S]*))?$/);
+      if (m) {
+        sessionText = m[1] === 'เช้า' ? t('sessionMorning') : t('sessionEvening');
+        note = m[2] || '';
+      }
+      var missing = Math.round((l.before - l.after) * 1000) / 1000;
+      var missingText, missingColor;
+      if (missing > 0) { missingText = '-' + missing; missingColor = 'var(--critical)'; }
+      else if (missing < 0) { missingText = '+' + Math.abs(missing); missingColor = 'var(--good)'; }
+      else { missingText = '0'; missingColor = ''; }
+      return '<tr>' +
+        '<td class="nowrap-cell">' + escapeHtml(l.time) + '</td>' +
+        '<td class="nowrap-cell">' + escapeHtml(sessionText) + '</td>' +
+        '<td>' + escapeHtml(l.name) + ' <span style="color:var(--muted)">(' + escapeHtml(l.code) + ')</span></td>' +
+        '<td class="nowrap-cell">' + l.before + '</td>' +
+        '<td class="nowrap-cell">' + l.after + '</td>' +
+        '<td class="nowrap-cell" style="color:' + missingColor + '">' + missingText + '</td>' +
+        '<td>' + escapeHtml(note) + '</td>' +
+      '</tr>';
+    }).join('');
     updateTableScrollHints();
   }
 
